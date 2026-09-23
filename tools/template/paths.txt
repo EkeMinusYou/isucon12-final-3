@@ -46,6 +46,7 @@ webapp
 # Contest-specific files that cannot leave a generic directory.
 # Add the contest's own entries here, e.g. tools/analysisctl/<contest>_test.go.
 tools/deployctl/isucon12_final_reset_test.go
+tools/bench-output/isucon12_final_test.go
 
 [exclude]
 tools/contest

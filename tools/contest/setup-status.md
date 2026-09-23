@@ -33,11 +33,9 @@ repeated runs after a reboot. No benchmark was run during setup.
 
 ## Measurement paths
 
-All enabled measurements below have **connectivity checked; benchmark pending**
-status. Smoke output is under `.task/setup-smoke-20260923-231720/`; it is not a
-benchmark RUN. `task artifacts` checked declarations against readers. The
-dashboard server tests passed, but RUN backed dashboard display needs a user
-initiated baseline.
+The table below records the setup smoke checks. Smoke output is under
+`.task/setup-smoke-20260923-231720/`; it is not a benchmark RUN. The later
+benchmark result and measurement status are recorded in the baseline section.
 
 | Measurement | Host, producer and enable condition | RUN output and reader | Smoke evidence |
 | --- | --- | --- | --- |
@@ -62,10 +60,42 @@ Run `task bench` to invoke the benchmarker on `isucon-bench` with
 The command finalizes failed runs too and makes a local commit of the RUN and
 `runs/scores.tsv`. Inspect the result with
 `task artifacts-run RUN=runs/<RUN_ID>`, `task q-sync`, and the dashboard.
-The benchmarker output format and any score breakdown or penalties remain to be
-checked against that first real RUN; missing results must remain unknown rather
-than being recorded as zero.
+The first real RUN exposed the benchmark output format. Missing results remain
+unknown rather than being recorded as zero.
 
 The profile duration is 240 seconds with a snapshot at 75 seconds. Confirm
 profile time coverage in the baseline RUN before treating the profiles as load
 evidence.
+
+## Baseline verification (2026-09-23)
+
+- `20260923-233835` ended before load because SSH host key verification failed.
+  It is finalized with `passed=false`. Five required pt-query-digest logs are
+  missing; `task artifacts-run` correctly fails for this RUN.
+- `20260923-234927` passed initialization and validation and completed load.
+  The benchmark output reports `[PASSED]: true`, score 0, addition 260,
+  deduction 300, and 20 completion-summary errors (16 timeouts and four HTTP
+  500 responses). The original result is preserved in `bench.log`. The old
+  output patterns left `run.json` and `scores.tsv` unknown; neither saved RUN
+  was rewritten. The contest-specific patterns now capture future results,
+  while DuckDB `bench_results`, `bench_score_routes`, and `bench_errors` expose
+  this saved result. Dashboard scores, RUN list, and timeline were checked
+  against the saved RUN through their HTTP APIs.
+- `task artifacts-run RUN=runs/20260923-234927` passes. Its manifest declares
+  108 artifacts: 104 `ok` and four optional empty pt-query-digest JSON files
+  on `isucon-2` through `isucon-5`. The required 31 artifacts are present.
+  Five hosts each have valid one-second proc, service, disk, MySQL status,
+  and SQL pool series, about 126-127 samples per host. All 25 Go profiles are
+  valid and imported, including a 240-second CPU and fgprof capture per host.
+- nginx recorded 257 requests on entry host `isucon-1` (four HTTP 500s) and
+  one request on `isucon-4`; the other three nginx logs are empty. Only
+  `isucon-1` has slow-query rows. User transitions recorded 257 classified
+  requests, nine identified sessions, and 69 transitions; 179 requests lacked
+  a session identity, and one API request was unclassified.
+- `analysis_windows` fell back to the full 126.771-second benchmark lifecycle:
+  request rate did not reach its start threshold for two consecutive seconds.
+  The actual load begins at 23:50:34 JST according to `bench.log`. Use that
+  narrower interval when comparing load-only capacity or wait metrics. The
+  existing `valid_runs` view still marks this archived RUN invalid because
+  `run.json.passed` is unknown and four optional digest JSON files are empty.
+  Read `bench_results` and artifact status separately for this RUN.

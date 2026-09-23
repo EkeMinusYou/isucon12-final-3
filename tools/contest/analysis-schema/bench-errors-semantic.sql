@@ -1,38 +1,61 @@
--- bench.log のエラー行を意味ビューにする、当日のベンチマーカー書式に依存するschema。
--- 生テキストの取り込みは汎用側（tools/analysis/schema/bench-errors.sql が
--- bench_error_logs へ入れる）が担当し、ここは行の解釈だけを持つ。
---
--- プレースホルダー。setupで当日の出力を見てから、下の3ビューの本体を書き換える。
--- ビュー名と列はdashboard（tools/dashboard/server/bench_errors.go）とREADMEの契約なので
--- 変えない。書き換えるまでは、いずれも0行を返す。
--- 書式に依存するテストは tools/dashboard/server/<contest>_test.go へ置き、
--- tools/template/paths.txt の [contest] へ加える。
+-- ISUCON12 final benchmark output, interpreted without changing saved RUNs.
 create table if not exists bench_error_logs (
     run_id varchar, content varchar, source_artifact varchar
 );
 
--- 報告された1エラーにつき1行。発生した全エラーではない場合があるので、
--- time_semantics にその行の時刻の意味を入れる（例: 完了時のまとめなら 'completion_summary'）。
-create or replace view bench_errors as
+create or replace view bench_results as
 select
-    cast(null as varchar) as run_id,
-    cast(null as bigint) as line_number,
-    cast(null as time) as reported_time,
-    cast(null as bigint) as error_index,
-    cast(null as varchar) as message,
-    cast(null as varchar) as time_semantics,
-    cast(null as varchar) as source_artifact
-where false;
+    run_id,
+    try_cast(regexp_extract(content, '\[SCORE\] ([0-9]+) \(addition:', 1) as bigint) as score,
+    try_cast(regexp_extract(content, '\[PASSED\]: (true|false)', 1) as boolean) as passed,
+    try_cast(regexp_extract(content, '\[SCORE\] [0-9]+ \(addition: ([0-9]+)', 1) as bigint) as addition,
+    try_cast(regexp_extract(content, '\[SCORE\] [0-9]+ \(addition: [0-9]+, deduction: ([0-9]+)', 1) as bigint) as deduction,
+    source_artifact
+from bench_error_logs;
 
--- 発生時刻を持つ構造化ログ行だけをここへ入れる。まとめ出力の時刻はここへ入れない。
+create or replace view bench_score_routes as
+with route_maps as (
+    select run_id, source_artifact,
+        regexp_extract(content, '\[SCORE\] map\[([^\]]+)\]', 1) as route_map
+    from bench_error_logs
+), route_matches as (
+    select run_id, source_artifact,
+        unnest(regexp_extract_all(route_map,
+            '(GET|POST|PUT|PATCH|DELETE) ([^ ]+):([0-9]+)',
+            ['method', 'route', 'points'])) as matched
+    from route_maps
+    where route_map <> ''
+)
+select run_id, matched.method as method, matched.route as route,
+    try_cast(matched.points as bigint) as points, source_artifact
+from route_matches;
+
+-- ERROR lines are emitted together at completion. Their timestamp is the
+-- reporting time, not the time at which each request failed.
+create or replace view bench_errors as
+with matches as (
+    select run_id, source_artifact,
+        unnest(regexp_extract_all(content,
+            '(?m)^([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+) ERROR\[([0-9]+)\] ([^\r\n]+)',
+            ['reported_time', 'error_index', 'message'])) as matched
+    from bench_error_logs
+)
+select run_id,
+    try_cast(matched.error_index as bigint) as line_number,
+    try_cast(matched.reported_time as time) as reported_time,
+    try_cast(matched.error_index as bigint) as error_index,
+    matched.message as message,
+    'completion_summary' as time_semantics,
+    source_artifact
+from matches;
+
+-- Individual error occurrence times and intermediate counts are unavailable.
 create or replace view bench_warning_events as
 select
     cast(null as varchar) as run_id,
     cast(null as timestamptz) as occurred_at
 where false;
 
--- 報告時点の累積エラー件数。個々のエラーの発生時刻ではない。
--- elapsed_s は負荷走行開始からの経過秒。
 create or replace view bench_error_counts as
 select
     cast(null as varchar) as run_id,

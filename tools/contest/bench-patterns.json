@@ -1,6 +1,6 @@
 {
-  "_comment": "Contest-specific benchmark log format. Replace the expressions for each contest; the generic core and the emitted markers stay unchanged. score needs exactly one capture group; leave an entry empty when the benchmarker has no such line.",
-  "score": "score:\\s*(\\d+)\\s*$",
-  "pass": "^\\s*pass\\s*$",
-  "fail": "^\\s*fail\\s*$"
+  "_comment": "ISUCON12 final benchmark result lines. The score pattern excludes the per-route [ADMIN] [SCORE] map.",
+  "score": "\\[SCORE\\]\\s+(\\d+)\\s+\\(addition:",
+  "pass": "\\[PASSED\\]:\\s*true\\s*$",
+  "fail": "\\[PASSED\\]:\\s*false\\s*$"
 }
