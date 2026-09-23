@@ -1,0 +1,130 @@
+
+# 500ms user time, 40ms system time, 60.97M rss, 415.15G vsz
+# Current date: Thu Sep 24 00:40:07 2026
+# Hostname: YusukenoMac-mini.local
+# Files: raw/mysql-slow-isucon-1.log
+# Overall: 766 total, 31 unique, 7.82 QPS, 31.10x concurrency ____________
+# Time range: 2026-09-23T15:36:09 to 2026-09-23T15:37:47
+# Attribute          total     min     max     avg     95%  stddev  median
+# ============     ======= ======= ======= ======= ======= ======= =======
+# Exec time          3048s   101ms     26s      4s     14s      5s   393ms
+# Lock time           477s       0     14s   622ms      4s      2s     1us
+# Rows sent         12.00k       0      90   16.05   49.17   17.93    9.83
+# Rows examine     348.56k       0   2.06k  465.96   1.14k  421.07  463.90
+# Query size        73.39M       6 1008.95k  98.12k 961.27k 282.14k   1.14k
+
+# Profile
+# Rank Query ID                            Response time   Calls R/Call V/
+# ==== =================================== =============== ===== ====== ==
+#    1 0xD2E71183AF9C219A020AA0027D9A3F13  2447.2985 80.3%   319 7.6718  3.65 SELECT performance_schema.data_lock_waits performance_schema.data_locks performance_schema.threads performance_schema.events_statements_current
+#    2 0x1049606E13674A053E0CC69500F839DC   502.0610 16.5%    77 6.5203  4.44 UPDATE user_one_time_tokens
+# MISC 0xMISC                                98.6879  3.2%   370 0.2667   0.0 <29 ITEMS>
+
+# Query 1: 13.29 QPS, 101.97x concurrency, ID 0xD2E71183AF9C219A020AA0027D9A3F13 at byte 76774128
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 3.65
+# Time range: 2026-09-23T15:37:23 to 2026-09-23T15:37:47
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         41     319
+# Exec time     80   2447s   125ms     17s      8s     15s      5s      7s
+# Lock time      0    16ms     1us    10ms    50us     2us   622us     1us
+# Rows sent     77   9.30k       1      90   29.87   62.76   16.66   27.38
+# Rows examine  69 242.11k      43   2.06k  777.18   1.39k  399.29  833.10
+# Query size     0 375.07k   1.18k   1.18k   1.18k   1.18k       0   1.18k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ###############
+#    1s  ################################################################
+#  10s+  #####################################################
+# Tables
+#    SHOW TABLE STATUS FROM `performance_schema` LIKE 'data_lock_waits'\G
+#    SHOW CREATE TABLE `performance_schema`.`data_lock_waits`\G
+#    SHOW TABLE STATUS FROM `performance_schema` LIKE 'data_locks'\G
+#    SHOW CREATE TABLE `performance_schema`.`data_locks`\G
+#    SHOW TABLE STATUS FROM `performance_schema` LIKE 'threads'\G
+#    SHOW CREATE TABLE `performance_schema`.`threads`\G
+#    SHOW TABLE STATUS FROM `performance_schema` LIKE 'events_statements_current'\G
+#    SHOW CREATE TABLE `performance_schema`.`events_statements_current`\G
+# EXPLAIN /*!50100 PARTITIONS*/
+SELECT
+  CONCAT_WS(':',
+    w.REQUESTING_ENGINE_TRANSACTION_ID,
+    w.REQUESTING_EVENT_ID,
+    w.REQUESTING_ENGINE_LOCK_ID,
+    w.BLOCKING_ENGINE_TRANSACTION_ID,
+    w.BLOCKING_EVENT_ID,
+    w.BLOCKING_ENGINE_LOCK_ID
+  ) AS wait_key,
+  w.REQUESTING_ENGINE_TRANSACTION_ID,
+  w.BLOCKING_ENGINE_TRANSACTION_ID,
+  rl.OBJECT_SCHEMA,
+  rl.OBJECT_NAME,
+  rl.INDEX_NAME,
+  rl.LOCK_TYPE,
+  rl.LOCK_MODE,
+  rl.LOCK_DATA,
+  bl.LOCK_TYPE,
+  bl.LOCK_MODE,
+  bl.LOCK_DATA,
+  w.REQUESTING_THREAD_ID,
+  rt.PROCESSLIST_ID,
+  rs.SQL_TEXT,
+  w.BLOCKING_THREAD_ID,
+  bt.PROCESSLIST_ID,
+  bs.SQL_TEXT
+FROM performance_schema.data_lock_waits AS w
+JOIN performance_schema.data_locks AS rl
+  ON rl.ENGINE_LOCK_ID = w.REQUESTING_ENGINE_LOCK_ID
+JOIN performance_schema.data_locks AS bl
+  ON bl.ENGINE_LOCK_ID = w.BLOCKING_ENGINE_LOCK_ID
+LEFT JOIN performance_schema.threads AS rt
+  ON rt.THREAD_ID = w.REQUESTING_THREAD_ID
+LEFT JOIN performance_schema.threads AS bt
+  ON bt.THREAD_ID = w.BLOCKING_THREAD_ID
+LEFT JOIN performance_schema.events_statements_current AS rs
+  ON rs.THREAD_ID = w.REQUESTING_THREAD_ID
+LEFT JOIN performance_schema.events_statements_current AS bs
+  ON bs.THREAD_ID = w.BLOCKING_THREAD_ID
+ORDER BY wait_key\G
+
+# Query 2: 2.85 QPS, 18.59x concurrency, ID 0x1049606E13674A053E0CC69500F839DC at byte 77062634
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 4.44
+# Time range: 2026-09-23T15:37:20 to 2026-09-23T15:37:47
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         10      77
+# Exec time     16    502s   109ms     15s      7s     14s      5s      5s
+# Lock time     99    476s     2us     14s      6s     14s      5s      4s
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine  11  41.54k     465     578  552.49  563.87   30.27  537.02
+# Query size     0   7.82k     104     104     104     104       0     104
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ######################################
+#    1s  ################################################################
+#  10s+  #############################################################
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_one_time_tokens'\G
+#    SHOW CREATE TABLE `isucon`.`user_one_time_tokens`\G
+UPDATE user_one_time_tokens SET deleted_at=1661701052 WHERE token='10d914f6-ac05-4827-86ee-52f874fd2d94'\G
+# Converted for EXPLAIN
+# EXPLAIN /*!50100 PARTITIONS*/
+select  deleted_at=1661701052 from user_one_time_tokens where  token='10d914f6-ac05-4827-86ee-52f874fd2d94'\G
