@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -131,10 +131,16 @@ func connectDB(batch bool) (*sqlx.DB, error) {
 		"Asia%2FTokyo",
 		batch,
 	)
-	dbx, err := sqlx.Open("mysql", dsn)
+	config, err := mysql.ParseDSN(dsn)
 	if err != nil {
 		return nil, err
 	}
+	config.InterpolateParams = true
+	dbx, err := sqlx.Open("mysql", config.FormatDSN())
+	if err != nil {
+		return nil, err
+	}
+	dbx.SetMaxOpenConns(50)
 	return dbx, nil
 }
 

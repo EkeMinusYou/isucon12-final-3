@@ -538,7 +538,7 @@ tasks:
           {{range (splitList " " .APP_TRAFFIC_HOSTS)}}
           echo "  server {{index $.IP .}}:{{$.LISTEN_PORT}};"
           {{end}}
-          echo "  keepalive 64;"
+          echo "  keepalive 60;"
           echo "}"
         } > nginx/conf.d/upstream.conf
       # Contest hook; appends solution-specific upstreams and generated per-host files.
