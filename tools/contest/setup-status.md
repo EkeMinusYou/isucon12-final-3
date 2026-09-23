@@ -41,7 +41,7 @@ initiated baseline.
 
 | Measurement | Host, producer and enable condition | RUN output and reader | Smoke evidence |
 | --- | --- | --- | --- |
-| Score, pass/fail | Portal result entered during `task bench-manual`; raw result text can be attached | `bench.log`, `benchmark-result.txt`, `runs/scores.tsv`, `run.json`; DuckDB `runs` and `bench_summaries_raw`, dashboard score view | Manual recording path and parsers checked in code/tests; no actual result exists |
+| Score, pass/fail | `task bench` runs the benchmarker on `isucon-bench`; manual portal results can still be entered with `task bench-manual` | `bench.log`, `benchmark-result.txt` (manual only), `runs/scores.tsv`, `run.json`; DuckDB `runs` and `bench_summaries_raw`, dashboard score view | Manual recording path and parsers checked in code/tests; no actual result exists |
 | Go CPU, heap, allocs, goroutine, fgprof | All app hosts; loopback `:6060`, `profiles` declarations enabled | Host named `.pprof` files; `go tool pprof`, DuckDB pprof tables, dashboard profile view | 25/25 files parsed; CPU and fgprof had nonzero samples on `isucon-1` |
 | SQL pool | All app hosts; `GET /debug/sql-pools`, collector enabled | Host named `sql-pool-metrics.tsv`; DuckDB `metrics_sql_pool`, dashboard resources | 91 data rows per host during smoke |
 | nginx access, alp, upstream | All nginx hosts; JSON access log and RUN rotation enabled | `raw/access-<host>.log.zst`, `alp.json`, `upstream-breakdown.tsv`, ingress outputs; DuckDB HTTP/endpoints/upstreams and dashboard | Three real requests on `isucon-1`, empty compressed logs on the other four hosts; alp and upstream had data |
@@ -57,17 +57,15 @@ enabled on all five database hosts.
 
 ## Baseline procedure
 
-The organizer provides the benchmark through the portal, so use
-`task bench-manual` while initiating the portal job from another terminal or
-browser. Once the portal reports completion, press Enter, optionally provide
-a saved text copy of the result, then enter the actual score and pass/fail.
+Run `task bench` to invoke the benchmarker on `isucon-bench` with
+`--target-host=172.31.45.101 --stage=prod --request-timeout=10s`.
 The command finalizes failed runs too and makes a local commit of the RUN and
 `runs/scores.tsv`. Inspect the result with
 `task artifacts-run RUN=runs/<RUN_ID>`, `task q-sync`, and the dashboard.
-The portal result format and any score breakdown or penalties remain to be
+The benchmarker output format and any score breakdown or penalties remain to be
 checked against that first real RUN; missing results must remain unknown rather
 than being recorded as zero.
 
-The profile duration is 240 seconds with a snapshot at 75 seconds. Portal
-queueing can exceed that window, so confirm profile time coverage in the
-baseline RUN before treating the profiles as load evidence.
+The profile duration is 240 seconds with a snapshot at 75 seconds. Confirm
+profile time coverage in the baseline RUN before treating the profiles as load
+evidence.

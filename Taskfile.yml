@@ -49,7 +49,7 @@ vars:
   # >>> contest values >>>
   # Contest topology. Keep host roles and private addresses here only.
   ALL_HOSTS: isucon-1 isucon-2 isucon-3 isucon-4 isucon-5
-  BENCH_HOST: portal
+  BENCH_HOST: isucon-bench
   IP:
     map:
       isucon-1: 172.31.45.101
@@ -75,7 +75,8 @@ vars:
 
   # >>> contest values >>>
   BENCH_TARGET: http://{{.ENTRY_IP}}
-  BENCH_COMMAND: ''
+  BENCH_COMMAND: 'cd {{.REMOTE_HOME}}/isucon12-final/benchmarker && env -u ISUXBENCH_TARGET {{.REMOTE_HOME}}/bin/benchmarker --target-host={{.ENTRY_IP}} --stage=prod --request-timeout=10s'
+  BENCH_SSH_OPTIONS: -o StrictHostKeyChecking=accept-new
   # <<< contest values <<<
 
   RESULT_DIR: runs
@@ -683,7 +684,7 @@ tasks:
       ISUCON_BENCH_PROFILES_ENABLED: '{{.PROFILES_ENABLED}}'
     cmds:
       - >-
-        sh tools/bench/run.sh auto -- tools/bench-output/bench-output {{.SSH}} {{.SSH_USER}}@{{.BENCH_HOST}}
+        sh tools/bench/run.sh auto -- tools/bench-output/bench-output {{.SSH}} {{.BENCH_SSH_OPTIONS}} {{.SSH_USER}}@{{.BENCH_HOST}}
         "sudo -u {{.ISUCON_USER}} -i bash -lc 'cd {{.REMOTE_HOME}} && {{.BENCH_COMMAND}}'"
 
   bench-no-collectors:

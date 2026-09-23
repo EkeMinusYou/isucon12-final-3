@@ -131,6 +131,17 @@ unit変更を適用するには通常の`deploy-app`による再起動が必要�
 
 ## ベンチ計測
 
+ベンチホスト `isucon-bench` から自動実行する場合:
+
+```shell
+task bench
+```
+
+`task bench`は`isucon-bench`へSSH接続し、`isucon`ユーザーで
+`/home/isucon/isucon12-final/benchmarker`からベンチを実行します。
+`ISUXBENCH_TARGET`を解除し、対象にはTaskfileの`ENTRY_IP`を指定します。
+初回のSSHホスト鍵は自動登録し、登録済みの鍵が変わった場合は接続を拒否します。
+
 ユーザーが別端末やポータルからベンチを手動実行する場合:
 
 ```shell
@@ -140,14 +151,6 @@ task bench-manual
 ポータルなどで完了を確認したらEnterを押し、結果原文の保存先（任意）、スコア、
 整合性チェックの結果を入力します。原文は同じRUNの`benchmark-result.txt`へ保存します。
 スコアが分からない場合は空欄にし、0点と区別します。
-本競技のベンチは公式ポータルからのみ実行するため、`task bench-manual`を使用します。
-`task bench`は`BENCH_COMMAND`が空であり実行できません。
-
-ベンチホストから実行できる場合は、`BENCH_COMMAND`を更新して次を使います。
-
-```shell
-task bench
-```
 
 ベンチの結果ログはローカルのGoツール`tools/bench-output`を通し、元の出力と終了コードを保ちながら
 当日の出力を計測基盤共通の`SCORE:`・`BENCHMARK_PASS`／`BENCHMARK_FAIL`へ変換します。
