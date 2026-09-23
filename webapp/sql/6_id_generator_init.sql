@@ -1,1 +1,0 @@
-UPDATE id_generator SET id=100000000001;

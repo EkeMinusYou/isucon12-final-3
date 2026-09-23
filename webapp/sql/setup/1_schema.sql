@@ -20,7 +20,6 @@ DROP TABLE IF EXISTS `user_cards`;
 DROP TABLE IF EXISTS `item_masters`;
 DROP TABLE IF EXISTS `version_masters`;
 DROP TABLE IF EXISTS `admin_users`;
-DROP TABLE IF EXISTS `id_generator`;
 
 CREATE TABLE `users` (
   `id` bigint NOT NULL,
@@ -131,7 +130,8 @@ CREATE TABLE `user_present_all_received_history` (
   `created_at` bigint NOT NULL,
   `updated_at`bigint NOT NULL,
   `deleted_at` bigint default NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id_present_all_id` (`user_id`, `present_all_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 CREATE TABLE `user_presents` (
@@ -272,10 +272,5 @@ CREATE TABLE `admin_users` (
   `created_at` bigint NOT NULL,
   `updated_at`bigint NOT NULL,
   `deleted_at` bigint default NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
-
-CREATE TABLE `id_generator` (
-  `id` bigint NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
