@@ -10,6 +10,7 @@ raw/
 
 # Contest application build artifacts
 webapp/go/default.pgo
+/webapp/go/isuconquest
 
 # Tool build artifacts
 /tools/bench-output/bench-output

@@ -1,0 +1,32 @@
+include:
+  - ../deployctl/deployments.yaml
+
+deployments:
+  db-schema:
+    uploads:
+      - label: official SQL reset assets
+        role: mysql
+        local: '{var:sql_dir}/'
+        remote: '{var:remote_home}/{var:sql_dir}/'
+        delete: true
+    activations:
+      - label: recreate the local database from official setup assets
+        role: mysql
+        script: |
+          set -eu
+          sql='{var:remote_home}/{var:sql_dir}'
+          test -f "$sql/{var:sql_schema_file}"
+          test -f "$sql/setup/0_setup.sql"
+          test -f "$sql/setup/2_init.sql"
+          sudo mysql -e 'DROP DATABASE IF EXISTS `{var:db_name}`'
+          sudo mysql < "$sql/setup/0_setup.sql"
+          sudo mysql '{var:db_name}' < "$sql/{var:sql_schema_file}"
+          sudo mysql '{var:db_name}' < "$sql/setup/2_init.sql"
+
+  app-initialize:
+    activations:
+      - label: initialize every local application database
+        role: app
+        script: |
+          set -eu
+          curl --fail-with-body --silent --show-error --max-time 120 -X POST 'http://127.0.0.1:{var:listen_port}{var:initialize_path}'

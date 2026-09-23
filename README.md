@@ -114,6 +114,11 @@ deploymentを定義します。`RESET_INPUTS`にはschema以外に初期化が�
 追加資材が無い場合は`none`にします。通常の`task deploy-all`はDBを再作成しません。
 `db-recreate`の前に対象DBの状態を確認してください。`db-recreate-dry`は実行順を表示します。
 
+この競技では[セットアップ記録](tools/contest/setup-status.md)の通り、`task db-recreate`は
+`isucon-1`〜`isucon-5`すべてのローカル`isucon` DBを破棄し、公式SQLのsetupと初期データを
+適用した後、各ホストの`POST /initialize`を実行します。実行前に`task db-recreate-dry`で5台分の
+対象と順序を確認してください。初回セットアップではdry-runのみ行い、実DB再作成は実行していません。
+
 `task config-check`はnginx/MySQLの正規配布先へ設定を書き込み、構文検査します。reloadは行いませんが、
 成功した設定は配布先に残ります。初期化時の`CONFIG_CHECK_COMMAND`へ設定する前に、検査コマンドと
 追加service・ホスト別設定の除外／上書き順序を実環境へ合わせてください。
@@ -132,8 +137,11 @@ unit変更を適用するには通常の`deploy-app`による再起動が必要�
 task bench-manual
 ```
 
-ポータルなどで完了を確認したらEnterを押し、スコアと整合性チェックの結果を入力します。
+ポータルなどで完了を確認したらEnterを押し、結果原文の保存先（任意）、スコア、
+整合性チェックの結果を入力します。原文は同じRUNの`benchmark-result.txt`へ保存します。
 スコアが分からない場合は空欄にし、0点と区別します。
+本競技のベンチは公式ポータルからのみ実行するため、`task bench-manual`を使用します。
+`task bench`は`BENCH_COMMAND`が空であり実行できません。
 
 ベンチホストから実行できる場合は、`BENCH_COMMAND`を更新して次を使います。
 

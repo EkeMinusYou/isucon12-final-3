@@ -1,11 +1,24 @@
 {
-  "_comment": "Placeholder. Set cookie_field to the access log column that identifies a session, api_prefix to the API root, and replace routes with the contest's own paths: dynamic IDs normalized, most specific pattern first.",
   "cookie_field": "session_id",
   "api_prefix": "/",
   "routes": [
-    {
-      "name": "/initialize",
-      "pattern": "^/initialize$"
-    }
+    {"name": "/user/:userID/gacha/draw/:gachaID/:n", "pattern": "^/user/[^/]+/gacha/draw/[^/]+/[^/]+$"},
+    {"name": "/user/:userID/gacha/index", "pattern": "^/user/[^/]+/gacha/index$"},
+    {"name": "/user/:userID/present/index/:n", "pattern": "^/user/[^/]+/present/index/[^/]+$"},
+    {"name": "/user/:userID/present/receive", "pattern": "^/user/[^/]+/present/receive$"},
+    {"name": "/user/:userID/card/addexp/:cardID", "pattern": "^/user/[^/]+/card/addexp/[^/]+$"},
+    {"name": "/user/:userID/card", "pattern": "^/user/[^/]+/card$"},
+    {"name": "/user/:userID/reward", "pattern": "^/user/[^/]+/reward$"},
+    {"name": "/user/:userID/home", "pattern": "^/user/[^/]+/home$"},
+    {"name": "/user/:userID/item", "pattern": "^/user/[^/]+/item$"},
+    {"name": "/admin/user/:userID/ban", "pattern": "^/admin/user/[^/]+/ban$"},
+    {"name": "/admin/user/:userID", "pattern": "^/admin/user/[^/]+$"},
+    {"name": "/admin/logout", "pattern": "^/admin/logout$"},
+    {"name": "/admin/master", "pattern": "^/admin/master$"},
+    {"name": "/admin/login", "pattern": "^/admin/login$"},
+    {"name": "/initialize", "pattern": "^/initialize$"},
+    {"name": "/health", "pattern": "^/health$"},
+    {"name": "/login", "pattern": "^/login$"},
+    {"name": "/user", "pattern": "^/user$"}
   ]
 }

@@ -4,5 +4,15 @@ reverse: true
 limit: 65536
 matching_groups:
   # >>> contest values >>>
-  # Normalize the contest's dynamic path segments here, most specific first.
+  - '^/user/[^/]+/gacha/draw/[^/]+/[^/]+$'
+  - '^/user/[^/]+/gacha/index$'
+  - '^/user/[^/]+/present/index/[^/]+$'
+  - '^/user/[^/]+/present/receive$'
+  - '^/user/[^/]+/card/addexp/[^/]+$'
+  - '^/user/[^/]+/card$'
+  - '^/user/[^/]+/reward$'
+  - '^/user/[^/]+/home$'
+  - '^/user/[^/]+/item$'
+  - '^/admin/user/[^/]+/ban$'
+  - '^/admin/user/[^/]+$'
   # <<< contest values <<<

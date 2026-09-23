@@ -1,21 +1,15 @@
-// Command smoke exercises a few requests against the application without
-// running the benchmark, so that `task setup-smoke` can check that the
-// collectors, logs, and profiles produce artifacts.
-//
-// Placeholder: task setup-smoke builds this for TARGET_OS/TARGET_ARCH, copies
-// the binary to ENTRY_HOST, and runs it there with no arguments. Replace the
-// flow below with the contest's own session flow (registration, login, and a
-// few authenticated reads) during setup. Keep it read-mostly, keep it short,
-// and never print session identifiers or credentials.
+// Command smoke makes one registration and two authenticated reads without
+// running the benchmark. It never prints session identifiers or credentials.
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"net/http/cookiejar"
 	"strings"
 	"time"
 )
@@ -24,29 +18,32 @@ func main() {
 	base := flag.String("base", "http://127.0.0.1", "application base URL, reached from the host this runs on")
 	flag.Parse()
 
-	jar, err := cookiejar.New(nil)
+	c := &client{http: &http.Client{Timeout: 15 * time.Second}, base: strings.TrimSuffix(*base, "/")}
+	requestBody, _ := json.Marshal(map[string]interface{}{"viewerId": fmt.Sprintf("setup-%d", time.Now().UnixNano()), "platformType": 1})
+	response, err := c.do(http.MethodPost, "/user", bytes.NewReader(requestBody))
 	if err != nil {
 		log.Fatal(err)
 	}
-	// The jar keeps the session across steps once the flow logs in.
-	c := &client{http: &http.Client{Jar: jar, Timeout: 15 * time.Second}, base: strings.TrimSuffix(*base, "/")}
-
-	paths := []string{"/"}
-	for _, path := range paths {
-		if _, err := c.get(path); err != nil {
+	var created struct {
+		UserID    int64  `json:"userId"`
+		SessionID string `json:"sessionId"`
+	}
+	if err := json.Unmarshal(response, &created); err != nil || created.UserID == 0 || created.SessionID == "" {
+		log.Fatal("registration did not return a user and session")
+	}
+	c.session = created.SessionID
+	for _, path := range []string{fmt.Sprintf("/user/%d/home", created.UserID), fmt.Sprintf("/user/%d/item", created.UserID)} {
+		if _, err := c.do(http.MethodGet, path, nil); err != nil {
 			log.Fatal(err)
 		}
 	}
-	fmt.Printf("Smoke: %d unauthenticated read(s) passed; replace this flow with the contest's own\n", len(paths))
+	fmt.Println("Smoke: registration and two authenticated reads passed")
 }
 
 type client struct {
-	http *http.Client
-	base string
-}
-
-func (c *client) get(path string) ([]byte, error) {
-	return c.do(http.MethodGet, path, nil)
+	http    *http.Client
+	base    string
+	session string
 }
 
 func (c *client) do(method, path string, body io.Reader) ([]byte, error) {
@@ -56,6 +53,11 @@ func (c *client) do(method, path string, body io.Reader) ([]byte, error) {
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("x-isu-date", "Sat, 06 Aug 2022 12:00:00 GMT")
+	req.Header.Set("x-master-version", "1")
+	if c.session != "" {
+		req.Header.Set("x-session", c.session)
 	}
 	res, err := c.http.Do(req)
 	if err != nil {

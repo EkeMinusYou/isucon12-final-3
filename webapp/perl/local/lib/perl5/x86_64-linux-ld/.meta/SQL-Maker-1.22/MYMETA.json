@@ -1,0 +1,137 @@
+{
+   "abstract" : "Yet another SQL builder",
+   "author" : [
+      "Tokuhiro Matsuno <tokuhirom AAJKLFJEF@ GMAIL COM>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Minilla/v3.1.19, CPAN::Meta::Converter version 2.150010",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "SQL-Maker",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "xt",
+         "inc",
+         "share",
+         "eg",
+         "examples",
+         "author",
+         "builder"
+      ]
+   },
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "Module::Build::Tiny" : "0.035"
+         }
+      },
+      "develop" : {
+         "requires" : {
+            "Test::CPAN::Meta" : "0",
+            "Test::MinimumVersion::Fast" : "0.04",
+            "Test::PAUSE::Permissions" : "0.07",
+            "Test::Pod" : "1.41",
+            "Test::Spellunker" : "v0.2.7"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Class::Accessor::Lite" : "0.05",
+            "DBI" : "0",
+            "Module::Load" : "0",
+            "SQL::QueryMaker" : "0",
+            "Scalar::Util" : "0",
+            "parent" : "0",
+            "perl" : "5.008001"
+         }
+      },
+      "test" : {
+         "requires" : {
+            "Clone" : "0",
+            "Test::More" : "0.98",
+            "Test::Requires" : "0",
+            "Tie::IxHash" : "0"
+         },
+         "suggests" : {
+            "DateTime" : "0"
+         }
+      }
+   },
+   "provides" : {
+      "SQL::Maker" : {
+         "file" : "lib/SQL/Maker.pm",
+         "version" : "1.22"
+      },
+      "SQL::Maker::Condition" : {
+         "file" : "lib/SQL/Maker/Condition.pm"
+      },
+      "SQL::Maker::Plugin::InsertMulti" : {
+         "file" : "lib/SQL/Maker/Plugin/InsertMulti.pm"
+      },
+      "SQL::Maker::Plugin::InsertOnDuplicate" : {
+         "file" : "lib/SQL/Maker/Plugin/InsertOnDuplicate.pm"
+      },
+      "SQL::Maker::SQLType" : {
+         "file" : "lib/SQL/Maker/SQLType.pm"
+      },
+      "SQL::Maker::Select" : {
+         "file" : "lib/SQL/Maker/Select.pm"
+      },
+      "SQL::Maker::Select::Oracle" : {
+         "file" : "lib/SQL/Maker/Select/Oracle.pm"
+      },
+      "SQL::Maker::SelectSet" : {
+         "file" : "lib/SQL/Maker/SelectSet.pm"
+      },
+      "SQL::Maker::Util" : {
+         "file" : "lib/SQL/Maker/Util.pm"
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/tokuhirom/SQL-Maker/issues"
+      },
+      "homepage" : "https://github.com/tokuhirom/SQL-Maker",
+      "repository" : {
+         "type" : "git",
+         "url" : "https://github.com/tokuhirom/SQL-Maker.git",
+         "web" : "https://github.com/tokuhirom/SQL-Maker"
+      }
+   },
+   "version" : "1.22",
+   "x_authority" : "cpan:TOKUHIROM",
+   "x_contributors" : [
+      "Atsushi Kobayashi <nekokak@gmail.com>",
+      "Fuji, Goro <gfuji@cpan.org>",
+      "Gelu Lupas <gvl@cpan.org>",
+      "Kaz-su <ksugi@fout.jp>",
+      "Kazuho Oku <kazuhooku@gmail.com>",
+      "Masahiro Chiba <chiba@everqueue.com>",
+      "Masahiro Chiba <nihen@megabbs.com>",
+      "Masayuki Matsuki <y.songmu@gmail.com>",
+      "Neil Bowers <neil@bowers.com>",
+      "Tokuhiro Matsuno <tokuhirom@gmail.com>",
+      "Toshio Ito <debug.ito@gmail.com>",
+      "bayashi <bayashi@cpan.org>",
+      "issm <issmxx@gmail.com>",
+      "k-takahashi <k-takahashi@mfac.jp>",
+      "karupanerura <karupa@cpan.org>",
+      "ktat <ktat.is@gmail.com>",
+      "lestrrat <lestrrat+github@gmail.com>",
+      "makamaka <makamaka.donzoko@gmail.com>",
+      "plsplsme <daigoro5656@gmail.com>",
+      "pokutuna <popopopopokutuna@gmail.com>",
+      "sakamossan <mild7caloriemategreentea@gmail.com>",
+      "soh335 <sugarbabe335@gmail.com>",
+      "yamaguchi.toru <zigorou@cpan.org>"
+   ],
+   "x_serialization_backend" : "JSON::PP version 4.08",
+   "x_static_install" : 1
+}
