@@ -1,0 +1,2 @@
+ingress_host	count	method	uri	2xx	3xx	4xx	5xx	max	avg	sum	p90	p99	sum_body	avg_body
+isucon-3	2	GET	/index.html	2	0	0	0	0	0	0	0	0	792	396
