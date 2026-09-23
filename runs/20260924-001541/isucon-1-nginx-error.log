@@ -1,0 +1,70 @@
+# host=isucon-1 unit=nginx load_window=2026-09-23T15:15:45.40767364Z..2026-09-23T15:17:34.212179324Z
+-- No entries --
+# /var/log/nginx/error.log filtered to the same load window
+2026/09/23 15:17:24 [alert] 3496#3496: *3693 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:24 [alert] 3496#3496: *3696 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:24 [alert] 3496#3496: *3697 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:24 [alert] 3496#3496: *3698 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:24 [alert] 3496#3496: *3700 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:24 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:25 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:25 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:25 [alert] 3496#3496: *5356 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:25 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:25 [alert] 3496#3496: *5357 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:26 [alert] 3495#3495: *5359 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:26 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:26 [alert] 3495#3495: *5361 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:26 [alert] 3496#3496: *5363 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:26 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:26 [alert] 3496#3496: *5365 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:26 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:26 [alert] 3495#3495: *5367 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:26 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:26 [alert] 3496#3496: *5370 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:27 [alert] 3495#3495: *5372 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:27 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:27 [alert] 3495#3495: *5373 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:27 [alert] 3496#3496: *5374 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:27 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:27 [alert] 3496#3496: *5375 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:27 [alert] 3495#3495: *5376 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:27 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:27 [alert] 3495#3495: *5377 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:27 [alert] 3496#3496: *5378 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:27 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:27 [alert] 3496#3496: *5379 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:28 [alert] 3495#3495: *5380 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:28 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:28 [alert] 3495#3495: *5381 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:28 [alert] 3496#3496: *5382 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:28 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:28 [alert] 3496#3496: *5383 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:28 [alert] 3495#3495: *5384 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:28 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:28 [alert] 3495#3495: *5385 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:28 [alert] 3496#3496: *5387 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:28 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:28 [alert] 3496#3496: *5389 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:29 [alert] 3495#3495: *5395 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:29 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:29 [alert] 3495#3495: *5397 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:29 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:29 [alert] 3496#3496: *5401 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /user HTTP/1.1", upstream: "http://127.0.0.1:8080/user", host: "172.31.45.101"
+2026/09/23 15:17:29 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:29 [alert] 3495#3495: *5414 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:29 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:29 [alert] 3496#3496: *5417 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:30 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:30 [alert] 3495#3495: *5424 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /user HTTP/1.1", upstream: "http://127.0.0.1:8080/user", host: "172.31.45.101"
+2026/09/23 15:17:30 [alert] 3496#3496: *5426 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /user HTTP/1.1", upstream: "http://127.0.0.1:8080/user", host: "172.31.45.101"
+2026/09/23 15:17:30 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:30 [alert] 3496#3496: *5427 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /user HTTP/1.1", upstream: "http://127.0.0.1:8080/user", host: "172.31.45.101"
+2026/09/23 15:17:30 [alert] 3495#3495: *5429 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:30 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:30 [alert] 3495#3495: *5431 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:30 [alert] 3496#3496: *5432 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:30 [crit] 3496#3496: accept4() failed (24: Too many open files)
+2026/09/23 15:17:30 [alert] 3496#3496: *5433 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
+2026/09/23 15:17:31 [crit] 3495#3495: accept4() failed (24: Too many open files)
+2026/09/23 15:17:31 [alert] 3495#3495: *5435 socket() failed (24: Too many open files) while connecting to upstream, client: 172.31.40.190, server: , request: "POST /login HTTP/1.1", upstream: "http://127.0.0.1:8080/login", host: "172.31.45.101"
