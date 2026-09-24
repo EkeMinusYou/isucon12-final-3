@@ -474,6 +474,35 @@ func insertUserPresents(tx *sqlx.Tx, presents []*UserPresent) error {
 	return nil
 }
 
+func insertUserPresentHistories(tx *sqlx.Tx, histories []*UserPresentAllReceivedHistory) error {
+	const maxRows = 1000
+	const prefix = "INSERT INTO user_present_all_received_history(id, user_id, present_all_id, received_at, created_at, updated_at) VALUES "
+	const row = "(?, ?, ?, ?, ?, ?)"
+
+	for start := 0; start < len(histories); start += maxRows {
+		end := start + maxRows
+		if end > len(histories) {
+			end = len(histories)
+		}
+		batch := histories[start:end]
+		var query strings.Builder
+		query.Grow(len(prefix) + len(batch)*(len(row)+1))
+		query.WriteString(prefix)
+		args := make([]interface{}, 0, len(batch)*6)
+		for i, history := range batch {
+			if i > 0 {
+				query.WriteByte(',')
+			}
+			query.WriteString(row)
+			args = append(args, history.ID, history.UserID, history.PresentAllID, history.ReceivedAt, history.CreatedAt, history.UpdatedAt)
+		}
+		if _, err := tx.Exec(query.String(), args...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // obtainPresent プレゼント付与
 func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*UserPresent, error) {
 	normalPresents := make([]*PresentAllMaster, 0)
@@ -538,19 +567,8 @@ func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*
 	if err := insertUserPresents(tx, obtainPresents); err != nil {
 		return nil, err
 	}
-	query = "INSERT INTO user_present_all_received_history(id, user_id, present_all_id, received_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-	for _, history := range histories {
-		if _, err := tx.Exec(
-			query,
-			history.ID,
-			history.UserID,
-			history.PresentAllID,
-			history.ReceivedAt,
-			history.CreatedAt,
-			history.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
+	if err := insertUserPresentHistories(tx, histories); err != nil {
+		return nil, err
 	}
 
 	return obtainPresents, nil
