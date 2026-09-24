@@ -20,10 +20,7 @@ func (h *Handler) stateListGacha(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	masterData, err := h.Masters.get(h.DB)
-	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
+	masterData := requestMaster(c)
 	masters := masterData.activeGachas(at)
 	if len(masters) == 0 {
 		return successResponse(c, &ListGachaResponse{Gachas: []*GachaData{}})
@@ -96,10 +93,7 @@ func (h *Handler) stateDrawGacha(c echo.Context) error {
 	if st.Core.User.IsuCoin < coins {
 		return errorResponse(c, http.StatusConflict, fmt.Errorf("not enough isucon"))
 	}
-	masterData, err := h.Masters.get(h.DB)
-	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
+	masterData := requestMaster(c)
 	gachaNumber, _ := strconv.ParseInt(gachaID, 10, 64)
 	master := masterData.gacha(gachaNumber, at)
 	if master == nil {
@@ -331,10 +325,7 @@ func (h *Handler) stateAddExpToCard(c echo.Context) error {
 	if card == nil {
 		return errorResponse(c, http.StatusNotFound, sql.ErrNoRows)
 	}
-	masterData, err := h.Masters.get(h.DB)
-	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
+	masterData := requestMaster(c)
 	master := masterData.Items[card.CardID]
 	if master == nil {
 		return errorResponse(c, http.StatusNotFound, sql.ErrNoRows)

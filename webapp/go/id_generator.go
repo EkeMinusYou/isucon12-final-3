@@ -14,6 +14,7 @@ const (
 	// Initialization removes dynamically created presents above this boundary.
 	firstGeneratedID  int64 = 100_000_000_001
 	idReservationSize int64 = 1_000_000
+	idShardCount      int64 = 5
 	maxSafeJSONID     int64 = 1<<53 - 1
 )
 
@@ -22,18 +23,22 @@ type idAllocator struct {
 	state    string
 	next     int64
 	reserved int64
+	shard    int64
 }
 
-func newIDAllocator() (*idAllocator, error) {
+func newIDAllocator(shard int) (*idAllocator, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	return newIDAllocatorAt(filepath.Join(home, ".isuconquest-id-state"))
+	return newIDAllocatorAt(filepath.Join(home, ".isuconquest-id-state"), shard)
 }
 
-func newIDAllocatorAt(state string) (*idAllocator, error) {
-	a := &idAllocator{state: state}
+func newIDAllocatorAt(state string, shard int) (*idAllocator, error) {
+	if shard < 0 || int64(shard) >= idShardCount {
+		return nil, fmt.Errorf("invalid ID shard: %d", shard)
+	}
+	a := &idAllocator{state: state, shard: int64(shard)}
 	if err := a.reserve(); err != nil {
 		return nil, err
 	}
@@ -43,13 +48,13 @@ func newIDAllocatorAt(state string) (*idAllocator, error) {
 func (a *idAllocator) nextID() (int64, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.next == a.reserved {
+	if a.next >= a.reserved {
 		if err := a.reserve(); err != nil {
 			return 0, err
 		}
 	}
 	id := a.next
-	a.next++
+	a.next += idShardCount
 	return id, nil
 }
 
@@ -63,7 +68,7 @@ func (a *idAllocator) reserve() error {
 		return fmt.Errorf("lock ID state: %w", err)
 	}
 
-	start := firstGeneratedID
+	start := firstGeneratedID + a.shard
 	data, err := os.ReadFile(a.state)
 	if err == nil {
 		start, err = strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
@@ -73,10 +78,20 @@ func (a *idAllocator) reserve() error {
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("read ID state: %w", err)
 	}
-	if start < firstGeneratedID || start > maxSafeJSONID-idReservationSize {
+	if start < firstGeneratedID {
 		return fmt.Errorf("ID state is out of range: %d", start)
 	}
-	end := start + idReservationSize
+	first := firstGeneratedID + a.shard
+	if start < first {
+		start = first
+	}
+	if remainder := (start - first) % idShardCount; remainder != 0 {
+		start += idShardCount - remainder
+	}
+	if start > maxSafeJSONID-idReservationSize*idShardCount {
+		return fmt.Errorf("ID state is out of range: %d", start)
+	}
+	end := start + idReservationSize*idShardCount
 
 	dir := filepath.Dir(a.state)
 	tmp, err := os.CreateTemp(dir, ".isuconquest-id-state-*")

@@ -36,10 +36,7 @@ func (h *Handler) stateCreateUser(c echo.Context) error {
 	device := &UserDevice{ID: deviceID, UserID: userID, PlatformID: req.ViewerID,
 		PlatformType: req.PlatformType, CreatedAt: at, UpdatedAt: at}
 	st.Core.Devices = []*UserDevice{device}
-	masters, err := h.Masters.get(h.DB)
-	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
+	masters := requestMaster(c)
 	item := masters.Items[2]
 	if item == nil {
 		return errorResponse(c, http.StatusNotFound, ErrItemNotFound)
@@ -61,7 +58,7 @@ func (h *Handler) stateCreateUser(c echo.Context) error {
 	deck := &UserDeck{ID: deckID, UserID: userID, CardID1: cards[0].ID, CardID2: cards[1].ID,
 		CardID3: cards[2].ID, CreatedAt: at, UpdatedAt: at}
 	st.Core.Decks = []*UserDeck{deck}
-	bonuses, presents, err := h.stateLoginRewards(st, at)
+	bonuses, presents, err := h.stateLoginRewards(st, masters, at)
 	if err != nil {
 		return stateGrantError(c, err)
 	}

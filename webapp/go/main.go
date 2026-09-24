@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -47,11 +48,13 @@ const (
 )
 
 type Handler struct {
-	DB      *sqlx.DB
-	IDs     *idAllocator
-	State   *stateStore
-	Masters *masterStore
-	Writer  *eventWriter
+	DB        *sqlx.DB
+	ControlDB *sqlx.DB
+	Cluster   *clusterTopology
+	IDs       *idAllocator
+	State     *stateStore
+	Masters   *masterStore
+	Writer    *eventWriter
 }
 
 func main() {
@@ -67,12 +70,24 @@ func main() {
 		AllowHeaders: []string{"Content-Type", "x-master-version", "x-session"},
 	}))
 
+	cluster, err := loadCluster("cluster.json")
+	if err != nil {
+		e.Logger.Fatalf("failed to load cluster topology: %v", err)
+	}
 	dbx, err := connectDB(false)
 	if err != nil {
 		e.Logger.Fatalf("failed to connect to db: %v", err)
 	}
 	defer dbx.Close()
-	ids, err := newIDAllocator()
+	controlDB := dbx
+	if cluster.Self != 0 {
+		controlDB, err = connectDBHost(false, cluster.Hosts[0].IP)
+		if err != nil {
+			e.Logger.Fatalf("failed to connect to control db: %v", err)
+		}
+		defer controlDB.Close()
+	}
+	ids, err := newIDAllocator(cluster.Self)
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize ID allocator: %v", err)
 	}
@@ -82,17 +97,21 @@ func main() {
 
 	e.Server.Addr = fmt.Sprintf(":%v", "8080")
 	h := &Handler{
-		DB:      dbx,
-		IDs:     ids,
-		State:   newStateStore(),
-		Masters: &masterStore{},
-		Writer:  newEventWriter(dbx),
+		DB:        dbx,
+		ControlDB: controlDB,
+		Cluster:   cluster,
+		IDs:       ids,
+		State:     newStateStore(),
+		Masters:   &masterStore{},
+		Writer:    newEventWriter(dbx),
 	}
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{}))
+	e.Use(cluster.routeMiddleware)
 
 	// utility
 	e.POST("/initialize", h.initializeState)
+	e.POST("/_internal/initialize", h.initializeLocalHTTP)
 	e.GET("/health", h.health)
 
 	// feature
@@ -126,11 +145,15 @@ func main() {
 
 // connectDB DBに接続する
 func connectDB(batch bool) (*sqlx.DB, error) {
+	return connectDBHost(batch, getEnv("ISUCON_DB_HOST", "127.0.0.1"))
+}
+
+func connectDBHost(batch bool, host string) (*sqlx.DB, error) {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=%s&multiStatements=%t",
 		getEnv("ISUCON_DB_USER", "isucon"),
 		getEnv("ISUCON_DB_PASSWORD", "isucon"),
-		getEnv("ISUCON_DB_HOST", "127.0.0.1"),
+		host,
 		getEnv("ISUCON_DB_PORT", "3306"),
 		getEnv("ISUCON_DB_NAME", "isucon"),
 		"Asia%2FTokyo",
@@ -177,7 +200,7 @@ func (h *Handler) apiMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Set("requestTime", requestAt.Unix())
 
 		// 有効なマスタデータか確認
-		master, err := h.Masters.get(h.DB)
+		master, err := h.Masters.get(h.ControlDB)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return errorResponse(c, http.StatusNotFound, fmt.Errorf("active master version is not found"))
@@ -188,6 +211,7 @@ func (h *Handler) apiMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if master.Version.MasterVersion != c.Request().Header.Get("x-master-version") {
 			return errorResponse(c, http.StatusUnprocessableEntity, ErrInvalidMasterVersion)
 		}
+		c.Set("masterSnapshot", master)
 
 		// BANユーザ確認
 		userID, err := getUserID(c)
@@ -206,6 +230,10 @@ func (h *Handler) apiMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		return nil
 	}
+}
+
+func requestMaster(c echo.Context) *masterSnapshot {
+	return c.Get("masterSnapshot").(*masterSnapshot)
 }
 
 // checkSessionMiddleware セッションが有効か確認するmiddleware
@@ -323,22 +351,12 @@ func isCompleteTodayLogin(lastActivatedAt, requestAt time.Time) bool {
 
 // initialize 初期化処理
 // POST /initialize
-func initialize(c echo.Context) error {
-	dbx, err := connectDB(true)
+func initialize(ctx context.Context) error {
+	out, err := exec.CommandContext(ctx, "/bin/sh", "-c", SQLDirectory+"init.sh").CombinedOutput()
 	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
+		return fmt.Errorf("initialize failed: %w: %s", err, string(out))
 	}
-	defer dbx.Close()
-
-	out, err := exec.Command("/bin/sh", "-c", SQLDirectory+"init.sh").CombinedOutput()
-	if err != nil {
-		c.Logger().Errorf("Failed to initialize %s: %v", string(out), err)
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
-
-	return successResponse(c, &InitializeResponse{
-		Language: "go",
-	})
+	return nil
 }
 
 type InitializeResponse struct {

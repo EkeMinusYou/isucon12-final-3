@@ -2,6 +2,7 @@ package main
 
 import (
 	"container/list"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -134,9 +135,13 @@ func (h *Handler) loadUserStateRead(id int64) (*userState, error) {
 }
 
 func (h *Handler) initializeState(c echo.Context) error {
+	return h.initializeCluster(c)
+}
+
+func (h *Handler) resetLocal(ctx context.Context) error {
 	h.State.gate.Lock()
 	defer h.State.gate.Unlock()
-	if err := initialize(c); err != nil {
+	if err := initialize(ctx); err != nil {
 		return err
 	}
 	h.State.clear()

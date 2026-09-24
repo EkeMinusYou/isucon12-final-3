@@ -9,7 +9,7 @@ import (
 
 func TestIDAllocatorPersistsReservedRanges(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "ids")
-	first, err := newIDAllocatorAt(state)
+	first, err := newIDAllocatorAt(state, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func TestIDAllocatorPersistsReservedRanges(t *testing.T) {
 	}
 
 	// A second process must skip every ID reserved by the first process.
-	second, err := newIDAllocatorAt(state)
+	second, err := newIDAllocatorAt(state, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,8 +30,8 @@ func TestIDAllocatorPersistsReservedRanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if secondID != firstGeneratedID+idReservationSize {
-		t.Fatalf("second process ID = %d, want %d", secondID, firstGeneratedID+idReservationSize)
+	if secondID != firstGeneratedID+idReservationSize*idShardCount {
+		t.Fatalf("second process ID = %d, want %d", secondID, firstGeneratedID+idReservationSize*idShardCount)
 	}
 }
 
@@ -45,7 +45,7 @@ func TestIDAllocatorConcurrentProcesses(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			allocator, err := newIDAllocatorAt(state)
+			allocator, err := newIDAllocatorAt(state, 0)
 			if err == nil {
 				var id int64
 				id, err = allocator.nextID()
@@ -81,7 +81,27 @@ func TestIDAllocatorRejectsCorruptState(t *testing.T) {
 	if err := os.WriteFile(state, []byte("invalid"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := newIDAllocatorAt(state); err == nil {
+	if _, err := newIDAllocatorAt(state, 0); err == nil {
 		t.Fatal("expected corrupt state to prevent ID reuse")
+	}
+}
+
+func TestIDAllocatorShards(t *testing.T) {
+	seen := make(map[int64]bool)
+	for shard := 0; shard < int(idShardCount); shard++ {
+		a, err := newIDAllocatorAt(filepath.Join(t.TempDir(), "ids"), shard)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 10; i++ {
+			id, err := a.nextID()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if int((id-1)%idShardCount) != shard || seen[id] {
+				t.Fatalf("invalid or duplicate ID %d on shard %d", id, shard)
+			}
+			seen[id] = true
+		}
 	}
 }

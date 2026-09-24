@@ -162,7 +162,7 @@ func (h *Handler) stateReceivePresent(c echo.Context) error {
 		}
 		p.UpdatedAt = at
 		p.DeletedAt = &at
-		if err := h.stateGrantItem(st, p.ItemID, p.ItemType, int64(p.Amount), at); err != nil {
+		if err := h.stateGrantItem(st, requestMaster(c), p.ItemID, p.ItemType, int64(p.Amount), at); err != nil {
 			return stateGrantError(c, err)
 		}
 	}

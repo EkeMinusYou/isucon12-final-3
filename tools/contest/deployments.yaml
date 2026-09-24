@@ -25,8 +25,17 @@ deployments:
 
   app-initialize:
     activations:
-      - label: initialize every local application database
-        role: app
+      - label: initialize the cluster through the entry application
+        role: app_init
         script: |
           set -eu
-          curl --fail-with-body --silent --show-error --max-time 120 -X POST 'http://127.0.0.1:{var:listen_port}{var:initialize_path}'
+          attempt=0
+          until curl --fail --silent --output /dev/null 'http://127.0.0.1:{var:listen_port}/health'; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 10 ]; then
+              echo 'entry application did not become ready' >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail-with-body --silent --show-error --max-time 60 -X POST 'http://127.0.0.1:{var:listen_port}{var:initialize_path}'

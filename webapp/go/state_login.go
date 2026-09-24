@@ -8,14 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (h *Handler) stateGrantItem(st *userState, itemID int64, itemType int, amount int64, at int64) error {
+func (h *Handler) stateGrantItem(st *userState, masters *masterSnapshot, itemID int64, itemType int, amount int64, at int64) error {
 	if itemType == 1 {
 		st.Core.User.IsuCoin += amount
 		return nil
-	}
-	masters, err := h.Masters.get(h.DB)
-	if err != nil {
-		return err
 	}
 	switch itemType {
 	case 2:
@@ -57,11 +53,7 @@ func (h *Handler) stateGrantItem(st *userState, itemID int64, itemType int, amou
 	return nil
 }
 
-func (h *Handler) stateLoginRewards(st *userState, at int64) ([]*UserLoginBonus, []*UserPresent, error) {
-	masters, err := h.Masters.get(h.DB)
-	if err != nil {
-		return nil, nil, err
-	}
+func (h *Handler) stateLoginRewards(st *userState, masters *masterSnapshot, at int64) ([]*UserLoginBonus, []*UserPresent, error) {
 	bonuses := masters.activeBonuses(at)
 	sentBonuses := make([]*UserLoginBonus, 0)
 	for _, bonus := range bonuses {
@@ -93,7 +85,7 @@ func (h *Handler) stateLoginRewards(st *userState, at int64) ([]*UserLoginBonus,
 		if reward == nil {
 			return nil, nil, ErrLoginBonusRewardNotFound
 		}
-		if err := h.stateGrantItem(st, reward.ItemID, reward.ItemType, reward.Amount, at); err != nil {
+		if err := h.stateGrantItem(st, masters, reward.ItemID, reward.ItemType, reward.Amount, at); err != nil {
 			return nil, nil, err
 		}
 		sentBonuses = append(sentBonuses, progress)
@@ -170,7 +162,7 @@ func (h *Handler) stateLogin(c echo.Context) error {
 	var presents []*UserPresent
 	daily := !isCompleteTodayLogin(time.Unix(st.Core.User.LastActivatedAt, 0), time.Unix(at, 0))
 	if daily {
-		bonuses, presents, err = h.stateLoginRewards(st, at)
+		bonuses, presents, err = h.stateLoginRewards(st, requestMaster(c), at)
 		if err != nil {
 			if err == ErrItemNotFound || err == ErrLoginBonusRewardNotFound {
 				return errorResponse(c, http.StatusNotFound, err)

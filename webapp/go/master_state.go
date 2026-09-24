@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
@@ -17,51 +19,72 @@ type masterSnapshot struct {
 }
 
 type masterStore struct {
-	mu    sync.Mutex
-	value *masterSnapshot
+	mu       sync.RWMutex
+	value    *masterSnapshot
+	revision int64
 }
 
 func (m *masterStore) clear() {
 	m.mu.Lock()
 	m.value = nil
+	m.revision = 0
 	m.mu.Unlock()
 }
 
 func (m *masterStore) get(db *sqlx.DB) (*masterSnapshot, error) {
+	var revision int64
+	if err := db.Get(&revision, "SELECT revision FROM master_revision WHERE id=1"); err != nil {
+		return nil, err
+	}
+	m.mu.RLock()
+	if m.value != nil && m.revision == revision {
+		value := m.value
+		m.mu.RUnlock()
+		return value, nil
+	}
+	m.mu.RUnlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.value != nil {
+	if m.value != nil && m.revision == revision {
 		return m.value, nil
+	}
+	tx, err := db.BeginTxx(context.Background(), &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if err := tx.Get(&revision, "SELECT revision FROM master_revision WHERE id=1"); err != nil {
+		return nil, err
 	}
 	s := &masterSnapshot{}
 	s.Version = new(VersionMaster)
-	if err := db.Get(s.Version, "SELECT * FROM version_masters WHERE status=1"); err != nil {
+	if err := tx.Get(s.Version, "SELECT * FROM version_masters WHERE status=1"); err != nil {
 		return nil, err
 	}
 	items := make([]*ItemMaster, 0)
-	if err := db.Select(&items, "SELECT * FROM item_masters"); err != nil {
+	if err := tx.Select(&items, "SELECT * FROM item_masters"); err != nil {
 		return nil, err
 	}
 	s.Items = make(map[int64]*ItemMaster, len(items))
 	for _, v := range items {
 		s.Items[v.ID] = v
 	}
-	if err := db.Select(&s.Gachas, "SELECT * FROM gacha_masters ORDER BY display_order ASC, id ASC"); err != nil {
+	if err := tx.Select(&s.Gachas, "SELECT * FROM gacha_masters ORDER BY display_order ASC, id ASC"); err != nil {
 		return nil, err
 	}
 	allGachaItems := make([]*GachaItemMaster, 0)
-	if err := db.Select(&allGachaItems, "SELECT * FROM gacha_item_masters ORDER BY id ASC"); err != nil {
+	if err := tx.Select(&allGachaItems, "SELECT * FROM gacha_item_masters ORDER BY id ASC"); err != nil {
 		return nil, err
 	}
 	s.GachaItems = make(map[int64][]*GachaItemMaster)
 	for _, v := range allGachaItems {
 		s.GachaItems[v.GachaID] = append(s.GachaItems[v.GachaID], v)
 	}
-	if err := db.Select(&s.Bonuses, "SELECT * FROM login_bonus_masters ORDER BY id ASC"); err != nil {
+	if err := tx.Select(&s.Bonuses, "SELECT * FROM login_bonus_masters ORDER BY id ASC"); err != nil {
 		return nil, err
 	}
 	rewards := make([]*LoginBonusRewardMaster, 0)
-	if err := db.Select(&rewards, "SELECT * FROM login_bonus_reward_masters"); err != nil {
+	if err := tx.Select(&rewards, "SELECT * FROM login_bonus_reward_masters"); err != nil {
 		return nil, err
 	}
 	s.BonusRewards = make(map[int64]map[int]*LoginBonusRewardMaster)
@@ -71,10 +94,14 @@ func (m *masterStore) get(db *sqlx.DB) (*masterSnapshot, error) {
 		}
 		s.BonusRewards[v.LoginBonusID][v.RewardSequence] = v
 	}
-	if err := db.Select(&s.PresentAll, "SELECT * FROM present_all_masters ORDER BY id ASC"); err != nil {
+	if err := tx.Select(&s.PresentAll, "SELECT * FROM present_all_masters ORDER BY id ASC"); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	m.value = s
+	m.revision = revision
 	return s, nil
 }
 

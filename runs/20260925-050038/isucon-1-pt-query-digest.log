@@ -1,0 +1,361 @@
+
+# 470ms user time, 60ms system time, 44.08M rss, 415.15G vsz
+# Current date: Fri Sep 25 05:04:52 2026
+# Hostname: YusukenoMac-mini.local
+# Files: raw/mysql-slow-isucon-1.log
+# Overall: 212 total, 20 unique, 2.55 QPS, 0.47x concurrency _____________
+# Time range: 2026-09-24T20:00:50 to 2026-09-24T20:02:13
+# Attribute          total     min     max     avg     95%  stddev  median
+# ============     ======= ======= ======= ======= ======= ======= =======
+# Exec time            39s   101ms      4s   182ms   339ms   241ms   141ms
+# Lock time          187us       0    16us       0     1us     2us       0
+# Rows sent         31.31k       0     651  151.23  621.67  250.64       0
+# Rows examine       2.83M       0 235.97k  13.65k 233.54k  53.90k       0
+# Query size        72.51M       6 1008.95k 350.26k 961.27k 454.47k   84.10
+
+# Profile
+# Rank Query ID                            Response time Calls R/Call V/M 
+# ==== =================================== ============= ===== ====== ====
+#    1 0x2096778F723F6666B5D7DDC9D01010C7  10.8078 27.9%    46 0.2350  0.02 INSERT user_cards
+#    2 0x4823015A58EC4A4049A5E1A002F5CF68   8.1689 21.1%    55 0.1485  0.02 SELECT user_presents
+#    3 0xFFFCA4D67EA0A788813031B8BBC3B329   4.9951 12.9%    43 0.1162  0.00 COMMIT
+#    4 0x79A889ED30BFA8BF517F86F6D70065B6   3.5844  9.3%     1 3.5844  0.00 LOAD DATA user_presents
+#    5 0x4112BAFCAD857E650001A24863DBA0F1   2.7838  7.2%    15 0.1856  0.02 INSERT user_present_all_received_history
+#    6 0xA09392770A027971695452345619CF0E   1.6801  4.3%    12 0.1400  0.04 SELECT user_present_all_received_history
+#    7 0x13D274D305314539C3CEC5658CA257A8   1.6700  4.3%     8 0.2087  0.02 INSERT user_items
+#    8 0x35C14F55314D10D9462EEEC18B6A3FBF   1.4234  3.7%    10 0.1423  0.01 SELECT master_revision
+#    9 0x8D9DA157C2CD4A986F812C6D0C44CB11   0.6280  1.6%     5 0.1256  0.00 SELECT user_cards
+#   10 0xB6B9ED728E1332C1DD99773350309CB2   0.5240  1.4%     2 0.2620  0.12 INSERT user_login_bonuses
+#   11 0x4AC4DC057720031F4B675AC0EA8F5E72   0.5106  1.3%     2 0.2553  0.19 INSERT user_devices
+# MISC 0xMISC                               1.8949  4.9%    13 0.1458   0.0 <9 ITEMS>
+
+# Query 1: 4.18 QPS, 0.98x concurrency, ID 0x2096778F723F6666B5D7DDC9D01010C7 at byte 42266770
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.02
+# Time range: 2026-09-24T20:00:51 to 2026-09-24T20:01:02
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         21      46
+# Exec time     27     11s   177ms   474ms   235ms   374ms    62ms   208ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    62  45.18M 970.86k 1006.59k 1005.76k 961.27k       0 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_cards'\G
+#    SHOW CREATE TABLE `isucon`.`user_cards`\G
+INSERT INTO `user_cards` VALUES (89206356764,7980165023,3,78,39,8892,1560179993,1560179993,NULL) /*... omitted ...*/\G
+
+# Query 2: 1.49 QPS, 0.22x concurrency, ID 0x4823015A58EC4A4049A5E1A002F5CF68 at byte 76034391
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.02
+# Time range: 2026-09-24T20:01:36 to 2026-09-24T20:02:13
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         25      55
+# Exec time     21      8s   101ms   354ms   149ms   266ms    50ms   128ms
+# Lock time     61   115us     1us    16us     2us     1us     2us     1us
+# Rows sent     97  30.60k     324     651  569.64  621.67  121.72  621.67
+# Rows examine   2  61.19k     648   1.27k   1.11k   1.26k  242.40   1.20k
+# Query size     0   4.56k      83      85   84.91   84.10       1   84.10
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+# EXPLAIN /*!50100 PARTITIONS*/
+SELECT * FROM user_presents WHERE user_id=2787589251 AND id<=100000000000 ORDER BY id\G
+
+# Query 3: 1.54 QPS, 0.18x concurrency, ID 0xFFFCA4D67EA0A788813031B8BBC3B329 at byte 76061440
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.00
+# Time range: 2026-09-24T20:01:39 to 2026-09-24T20:02:07
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         20      43
+# Exec time     12      5s   101ms   142ms   116ms   134ms    12ms   110ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     0     258       6       6       6       6       0       6
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+COMMIT\G
+
+# Query 4: 0 QPS, 0x concurrency, ID 0x79A889ED30BFA8BF517F86F6D70065B6 at byte 76010634
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.00
+# Time range: all events occurred at 2026-09-24T20:01:12
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          0       1
+# Exec time      9      4s      4s      4s      4s      4s       0      4s
+# Lock time      1     2us     2us     2us     2us     2us       0     2us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     0     146     146     146     146     146       0     146
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms
+#    1s  ################################################################
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+LOAD DATA INFILE '/var/lib/mysql-files/5_user_presents_not_receive_data.tsv' REPLACE INTO TABLE user_presents FIELDS ESCAPED BY '|' IGNORE 1 LINES\G
+
+# Query 5: 5 QPS, 0.93x concurrency, ID 0x4112BAFCAD857E650001A24863DBA0F1 at byte 72915362
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.02
+# Time range: 2026-09-24T20:01:05 to 2026-09-24T20:01:08
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          7      15
+# Exec time      7      3s   146ms   348ms   186ms   339ms    63ms   155ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    20  14.74M 1006.37k 1006.64k 1006.59k 961.27k       0 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_present_all_received_history'\G
+#    SHOW CREATE TABLE `isucon`.`user_present_all_received_history`\G
+INSERT INTO `user_present_all_received_history` VALUES (84716480176,2269643743,13,1617202800,1617202800,1617202800,NULL) /*... omitted ...*/\G
+
+# Query 6: 1.33 QPS, 0.19x concurrency, ID 0xA09392770A027971695452345619CF0E at byte 76014776
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.04
+# Time range: 2026-09-24T20:01:17 to 2026-09-24T20:01:26
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          5      12
+# Exec time      4      2s   102ms   377ms   140ms   208ms    77ms   105ms
+# Lock time      9    17us     1us     2us     1us     1us       0     1us
+# Rows sent      0     258      15      28   21.50   27.38    6.43   27.38
+# Rows examine  97   2.77M 235.97k 235.97k 235.97k 235.97k       0 235.97k
+# Query size     0    1008      84      84      84      84       0      84
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_present_all_received_history'\G
+#    SHOW CREATE TABLE `isucon`.`user_present_all_received_history`\G
+# EXPLAIN /*!50100 PARTITIONS*/
+SELECT * FROM user_present_all_received_history WHERE user_id=5961519126 ORDER BY id\G
+
+# Query 7: 4 QPS, 0.83x concurrency, ID 0x13D274D305314539C3CEC5658CA257A8 at byte 49758366
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.02
+# Time range: 2026-09-24T20:01:03 to 2026-09-24T20:01:05
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          3       8
+# Exec time      4      2s   130ms   369ms   209ms   356ms    62ms   189ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    10   7.57M 716.14k 1005.06k 968.89k 961.27k  91.98k 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_items'\G
+#    SHOW CREATE TABLE `isucon`.`user_items`\G
+INSERT INTO `user_items` VALUES (1167064,5412259060,3,20,2,1632245312,1632245312,NULL) /*... omitted ...*/\G
+
+# Query 8: 0.32 QPS, 0.05x concurrency, ID 0x35C14F55314D10D9462EEEC18B6A3FBF at byte 76014484
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.01
+# Time range: 2026-09-24T20:01:26 to 2026-09-24T20:01:57
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          4      10
+# Exec time      3      1s   101ms   221ms   142ms   163ms    35ms   148ms
+# Lock time      8    16us     1us     3us     1us     1us       0     1us
+# Rows sent      0      10       1       1       1       1       0       1
+# Rows examine   0      10       1       1       1       1       0       1
+# Query size     0     470      47      47      47      47       0      47
+# String:
+# Databases    isucon
+# Hosts        ip-172-31-... (4/40%), localhost (3/30%)... 2 more
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'master_revision'\G
+#    SHOW CREATE TABLE `isucon`.`master_revision`\G
+# EXPLAIN /*!50100 PARTITIONS*/
+SELECT revision FROM master_revision WHERE id=1\G
+
+# Query 9: 0.45 QPS, 0.06x concurrency, ID 0x8D9DA157C2CD4A986F812C6D0C44CB11 at byte 76064020
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.00
+# Time range: 2026-09-24T20:01:44 to 2026-09-24T20:01:55
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          2       5
+# Exec time      1   628ms   111ms   150ms   126ms   148ms    14ms   122ms
+# Lock time      3     6us     1us     2us     1us     1us       0     1us
+# Rows sent      1     463      20     129   92.60  124.25   43.80  124.25
+# Rows examine   0     926      40     258  185.20  246.02   86.71  246.02
+# Query size     0     305      61      61      61      61       0      61
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_cards'\G
+#    SHOW CREATE TABLE `isucon`.`user_cards`\G
+# EXPLAIN /*!50100 PARTITIONS*/
+SELECT * FROM user_cards WHERE user_id=3083854126 ORDER BY id\G
+
+# Query 10: 0 QPS, 0x concurrency, ID 0xB6B9ED728E1332C1DD99773350309CB2 at byte 57697140
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.12
+# Time range: all events occurred at 2026-09-24T20:01:05
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          0       2
+# Exec time      1   524ms   136ms   388ms   262ms   388ms   179ms   262ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     2   1.73M 768.20k 1004.77k 886.48k 1004.77k 167.28k 886.48k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_login_bonuses'\G
+#    SHOW CREATE TABLE `isucon`.`user_login_bonuses`\G
+INSERT INTO `user_login_bonuses` VALUES (3134447,8767177037,4,7,1,1651978143,1654213748,NULL) /*... omitted ...*/\G
+
+# Query 11: 0 QPS, 0x concurrency, ID 0x4AC4DC057720031F4B675AC0EA8F5E72 at byte 48278206
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.19
+# Time range: all events occurred at 2026-09-24T20:01:03
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          0       2
+# Exec time      1   511ms   101ms   410ms   255ms   410ms   218ms   255ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     1   1.41M 436.13k 1008.95k 722.54k 1008.95k 405.05k 722.54k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_devices'\G
+#    SHOW CREATE TABLE `isucon`.`user_devices`\G
+INSERT INTO `user_devices` VALUES (38256,6994093262,'1c131378-9090-4353-a094-4db47df536ef',3,1638359002,1638359002,NULL) /*... omitted ...*/\G

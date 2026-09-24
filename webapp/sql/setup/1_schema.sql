@@ -24,6 +24,7 @@ DROP TABLE IF EXISTS `user_items`;
 DROP TABLE IF EXISTS `user_cards`;
 DROP TABLE IF EXISTS `item_masters`;
 DROP TABLE IF EXISTS `version_masters`;
+DROP TABLE IF EXISTS `master_revision`;
 DROP TABLE IF EXISTS `admin_users`;
 
 CREATE TABLE `users` (
@@ -249,6 +250,13 @@ CREATE TABLE `version_masters` (
   `master_version` varchar(128) NOT NULL comment 'マスタバージョン',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE `master_revision` (
+  `id` bigint NOT NULL,
+  `revision` bigint NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+INSERT INTO `master_revision` (`id`, `revision`) VALUES (1, 0);
 
 CREATE TABLE `user_sessions` (
   `id` bigint NOT NULL,
