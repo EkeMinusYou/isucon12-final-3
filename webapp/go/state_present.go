@@ -11,16 +11,8 @@ import (
 
 const seedPresentMaxID int64 = 100000000000
 
-func (h *Handler) seedPresents(userID int64) ([]*UserPresent, error) {
-	if rows, ok := h.State.cachedSeed(userID); ok {
-		return rows, nil
-	}
-	result := make([]*UserPresent, 0)
-	err := h.DB.Select(&result, "SELECT * FROM user_presents WHERE user_id=? AND id<=? ORDER BY created_at DESC,id ASC", userID, seedPresentMaxID)
-	if err == nil {
-		h.State.putSeed(userID, result)
-	}
-	return result, err
+func (h *Handler) seedPresents(userID int64) []*UserPresent {
+	return h.State.seedRows(userID)
 }
 
 func combinedPresents(seed []*UserPresent, st *userState, includeReceived bool) []*UserPresent {
@@ -75,10 +67,7 @@ func (h *Handler) stateListPresent(c echo.Context) error {
 	if err != nil {
 		return stateNotFound(c, err)
 	}
-	seed, err := h.seedPresents(id)
-	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
+	seed := h.seedPresents(id)
 	all := mergePresents(seed, st, false, n*PresentCountPerPage+1)
 	offset := PresentCountPerPage * (n - 1)
 	if offset >= len(all) {
@@ -127,10 +116,7 @@ func (h *Handler) stateReceivePresent(c echo.Context) error {
 	}
 	toReceive := make([]*UserPresent, 0, len(seen))
 	if needSeed {
-		seed, err := h.seedPresents(id)
-		if err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
-		}
+		seed := h.seedPresents(id)
 		for _, original := range seed {
 			if !seen[original.ID] || original.DeletedAt != nil {
 				continue
@@ -183,10 +169,7 @@ func (h *Handler) stateAdminUser(c echo.Context) error {
 	if err != nil {
 		return stateNotFound(c, err)
 	}
-	seed, err := h.seedPresents(id)
-	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
+	seed := h.seedPresents(id)
 	presents := combinedPresents(seed, st, true)
 	if presents == nil {
 		presents = []*UserPresent{}

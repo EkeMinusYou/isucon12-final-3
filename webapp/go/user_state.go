@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 
 	"github.com/labstack/echo/v4"
@@ -15,7 +16,6 @@ import (
 const (
 	stateCacheEntries   = 256
 	stateCacheBytes     = 8 << 20
-	seedCacheBytes      = 8 << 20
 	sessionCacheEntries = 16384
 )
 
@@ -57,12 +57,6 @@ type stateCacheEntry struct {
 	size  int
 }
 
-type seedCacheEntry struct {
-	id   int64
-	rows []*UserPresent
-	size int
-}
-
 type stateStore struct {
 	gate          sync.RWMutex
 	locks         [4096]sync.Mutex
@@ -70,14 +64,12 @@ type stateStore struct {
 	lru           *list.List
 	items         map[int64]*list.Element
 	bytes         int
-	seedLRU       *list.List
-	seeds         map[int64]*list.Element
-	seedBytes     int
+	seeds         map[int64][]*UserPresent
 	sessionOwners map[string]int64
 }
 
 func newStateStore() *stateStore {
-	return &stateStore{lru: list.New(), items: make(map[int64]*list.Element), seedLRU: list.New(), seeds: make(map[int64]*list.Element), sessionOwners: make(map[string]int64)}
+	return &stateStore{lru: list.New(), items: make(map[int64]*list.Element), sessionOwners: make(map[string]int64)}
 }
 
 func (s *stateStore) lock(id int64) func() {
@@ -86,14 +78,12 @@ func (s *stateStore) lock(id int64) func() {
 	return m.Unlock
 }
 
-func (s *stateStore) clear() {
+func (s *stateStore) clear(seeds map[int64][]*UserPresent) {
 	s.mu.Lock()
 	s.lru.Init()
 	s.items = make(map[int64]*list.Element)
 	s.bytes = 0
-	s.seedLRU.Init()
-	s.seeds = make(map[int64]*list.Element)
-	s.seedBytes = 0
+	s.seeds = seeds
 	s.sessionOwners = make(map[string]int64)
 	s.mu.Unlock()
 }
@@ -144,7 +134,11 @@ func (h *Handler) resetLocal(ctx context.Context) error {
 	if err := initialize(ctx); err != nil {
 		return err
 	}
-	h.State.clear()
+	seeds, err := h.loadSeedPresents()
+	if err != nil {
+		return err
+	}
+	h.State.clear(seeds)
 	h.Masters.clear()
 	return nil
 }
@@ -241,42 +235,51 @@ func estimateStateBytes(st *userState) int {
 	return size
 }
 
-func (s *stateStore) cachedSeed(id int64) ([]*UserPresent, bool) {
+func (s *stateStore) seedRows(id int64) []*UserPresent {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	e, ok := s.seeds[id]
-	if !ok {
-		return nil, false
-	}
-	s.seedLRU.MoveToFront(e)
-	return e.Value.(*seedCacheEntry).rows, true
+	return s.seeds[id]
 }
 
-func (s *stateStore) putSeed(id int64, rows []*UserPresent) {
-	size := 64
-	for _, row := range rows {
-		size += 128 + len(row.PresentMessage)
-	}
-	if size > seedCacheBytes {
-		return
-	}
+func (s *stateStore) setSeeds(seeds map[int64][]*UserPresent) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if e, ok := s.seeds[id]; ok {
-		old := e.Value.(*seedCacheEntry)
-		s.seedBytes -= old.size
-		s.seedLRU.Remove(e)
+	s.seeds = seeds
+	s.mu.Unlock()
+}
+
+func (h *Handler) loadSeedPresents() (map[int64][]*UserPresent, error) {
+	seeds := make(map[int64][]*UserPresent)
+	if h.Cluster.Self == 0 {
+		return seeds, nil
 	}
-	e := s.seedLRU.PushFront(&seedCacheEntry{id: id, rows: rows, size: size})
-	s.seeds[id] = e
-	s.seedBytes += size
-	for s.seedBytes > seedCacheBytes && s.seedLRU.Len() > 1 {
-		last := s.seedLRU.Back()
-		entry := last.Value.(*seedCacheEntry)
-		delete(s.seeds, entry.id)
-		s.seedBytes -= entry.size
-		s.seedLRU.Remove(last)
+	rows, err := h.DB.Queryx(`SELECT * FROM user_presents WHERE id<=? AND user_id>0 AND
+		((user_id-1) % 5 = ? OR ((user_id-1) % 5 = 0 AND ((user_id-1) DIV 5) % 4 = ?))`,
+		seedPresentMaxID, h.Cluster.Self, h.Cluster.Self-1)
+	if err != nil {
+		return nil, err
 	}
+	defer rows.Close()
+	for rows.Next() {
+		present := new(UserPresent)
+		if err := rows.StructScan(present); err != nil {
+			return nil, err
+		}
+		if present.UserID > 0 && h.Cluster.owner(present.UserID) == h.Cluster.Self {
+			seeds[present.UserID] = append(seeds[present.UserID], present)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, presents := range seeds {
+		sort.Slice(presents, func(i, j int) bool {
+			if presents[i].CreatedAt != presents[j].CreatedAt {
+				return presents[i].CreatedAt > presents[j].CreatedAt
+			}
+			return presents[i].ID < presents[j].ID
+		})
+	}
+	return seeds, nil
 }
 
 func (s *stateStore) sessionOwner(id string) (int64, bool) {
@@ -372,9 +375,6 @@ func (h *Handler) loadUserState(id int64) (*userState, error) {
 			return nil, err
 		}
 		if err := h.DB.Select(&st.Inventory.Items, "SELECT * FROM user_items WHERE user_id=? ORDER BY id", id); err != nil {
-			return nil, err
-		}
-		if err := h.DB.Select(&st.Inbox.Dynamic, "SELECT * FROM user_presents WHERE user_id=? AND id>100000000000 ORDER BY id", id); err != nil {
 			return nil, err
 		}
 	default:

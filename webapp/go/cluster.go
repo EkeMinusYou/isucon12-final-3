@@ -70,7 +70,11 @@ func loadCluster(path string) (*clusterTopology, error) {
 }
 
 func (c *clusterTopology) owner(userID int64) int {
-	return int((userID - 1) % int64(len(c.Hosts)))
+	shard := int((userID - 1) % int64(len(c.Hosts)))
+	if shard == 0 {
+		return 1 + int(((userID-1)/int64(len(c.Hosts)))%int64(len(c.Hosts)-1))
+	}
+	return shard
 }
 
 func (c *clusterTopology) routeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -226,7 +230,7 @@ func (h *Handler) initializeCluster(ctx echo.Context) error {
 }
 
 func (c *clusterTopology) waitForWorkers(ctx context.Context) error {
-	readyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	readyCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	client := &http.Client{Timeout: time.Second, Transport: c.client.Transport}
 	for i := 1; i < len(c.Hosts); i++ {

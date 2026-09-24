@@ -5,6 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -15,6 +18,48 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
+}
+
+func TestNginxRoutesUsersToOwner(t *testing.T) {
+	config, err := os.ReadFile("../../nginx/conf.d/contest-routing.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	type rule struct {
+		pattern *regexp.Regexp
+		owner   int
+	}
+	var rules []rule
+	for _, line := range strings.Split(string(config), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 || !strings.HasPrefix(fields[0], "~^/user/") || !strings.HasPrefix(fields[1], "app_owner_") {
+			continue
+		}
+		owner, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(fields[1], "app_owner_"), ";"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		rules = append(rules, rule{pattern: regexp.MustCompile(strings.TrimPrefix(fields[0], "~")), owner: owner - 1})
+	}
+	cluster := &clusterTopology{Hosts: make([]clusterHost, 5)}
+	for _, first := range []int64{1, 100000000001} {
+		for id := first; id < first+1000; id++ {
+			path := "/user/" + strconv.FormatInt(id, 10) + "/home"
+			matched := false
+			for _, route := range rules {
+				if route.pattern.MatchString(path) {
+					if route.owner != cluster.owner(id) {
+						t.Fatalf("user %d: nginx owner %d, Go owner %d", id, route.owner, cluster.owner(id))
+					}
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				t.Fatalf("user %d has no nginx owner", id)
+			}
+		}
+	}
 }
 
 func TestRouteMiddlewareForwardsUserRequests(t *testing.T) {

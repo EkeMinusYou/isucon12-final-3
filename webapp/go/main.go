@@ -123,6 +123,11 @@ func main() {
 		Masters:    &masterStore{},
 		Writer:     newEventWriter(dbx),
 	}
+	seeds, err := h.loadSeedPresents()
+	if err != nil {
+		e.Logger.Fatalf("failed to load seed presents: %v", err)
+	}
+	h.State.setSeeds(seeds)
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{}))
 	e.Use(cluster.routeMiddleware)
