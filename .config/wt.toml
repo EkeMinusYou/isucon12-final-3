@@ -1,2 +1,2 @@
-[pre-start]
-link-duckdb = "ln -s {{ primary_worktree_path }}/runs/analysis.duckdb runs/analysis.duckdb"
+[post-merge]
+qsync = "task q-sync"
