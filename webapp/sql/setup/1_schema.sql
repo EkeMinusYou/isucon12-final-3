@@ -235,7 +235,8 @@ CREATE TABLE `user_sessions` (
   `expired_at` bigint NOT NULL,
   `deleted_at` bigint default NULL,
   PRIMARY KEY (`id`),
-  UNIQUE uniq_session_id (`user_id`, `session_id`, `deleted_at`)
+  UNIQUE uniq_session_id (`user_id`, `session_id`, `deleted_at`),
+  KEY idx_session_id (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 /* 更新処理について利用するone time tokenの管理 */
@@ -249,7 +250,8 @@ CREATE TABLE `user_one_time_tokens` (
   `expired_at` bigint NOT NULL,
   `deleted_at` bigint default NULL,
   PRIMARY KEY (`id`),
-  UNIQUE uniq_token (`user_id`, `token`, `deleted_at`)
+  UNIQUE uniq_token (`user_id`, `token`, `deleted_at`),
+  KEY idx_token (`token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 /* 管理者権限のセッション管理 */
