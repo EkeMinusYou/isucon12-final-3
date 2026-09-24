@@ -1,0 +1,7 @@
+# host=isucon-2 unit=isuconquest.go load_window=2026-09-24T20:14:44.336019657Z..2026-09-24T20:15:16.683160267Z
+2026-09-24T20:14:49.080971+0000 ip-172-31-45-54 .x[39729]: {"time":"2026-09-25T05:14:49.080936002+09:00","id":"","remote_ip":"172.31.45.101","host":"172.31.45.54:8080","method":"GET","uri":"/health","user_agent":"Go-http-client/1.1","status":200,"error":"","latency":18282,"latency_human":"18.282µs","bytes_in":0,"bytes_out":2}
+2026-09-24T20:15:10.259751+0000 ip-172-31-45-54 sudo[42803]:   isucon : PWD=/home/isucon/webapp/sql ; USER=root ; COMMAND=/usr/bin/cp 5_user_presents_not_receive_data.tsv /var/lib/mysql-files/
+2026-09-24T20:15:10.260339+0000 ip-172-31-45-54 sudo[42803]: pam_unix(sudo:session): session opened for user root(uid=0) by (uid=1100)
+2026-09-24T20:15:10.299241+0000 ip-172-31-45-54 sudo[42803]: pam_unix(sudo:session): session closed for user root
+2026-09-24T20:15:12.768574+0000 ip-172-31-45-54 .x[39729]: {"time":"2026-09-25T05:15:12.768527056+09:00","id":"","remote_ip":"172.31.45.101","host":"172.31.45.54:8080","method":"POST","uri":"/_internal/initialize","user_agent":"Go-http-client/1.1","status":204,"error":"","latency":23685150569,"latency_human":"23.685150569s","bytes_in":0,"bytes_out":0}
+2026-09-24T20:15:13.538530+0000 ip-172-31-45-54 .x[39729]: {"time":"2026-09-25T05:15:13.538499115+09:00","id":"","remote_ip":"172.31.45.101","host":"172.31.45.101","method":"POST","uri":"/login","user_agent":"isucandar","status":200,"error":"","latency":9145271,"latency_human":"9.145271ms","bytes_in":43,"bytes_out":3313}

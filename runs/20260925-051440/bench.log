@@ -1,0 +1,26 @@
+2026-09-24T20:14:44.336019657Z	BENCHMARK_START
+[ADMIN] 20:14:45.017407 benchmarker --target-host=172.31.45.101 --request-timeout=10s --initialize-request-timeout=1m0s --exit-error-on-fail=true --stage=prod --max-parallelism=100 --prepare-only=false
+20:15:12.769151 [ValidationScenario] 整合性チェックを開始します
+[ADMIN] 20:15:12.769141 [LANGUAGE] go
+20:15:13.159043 整合性チェック Request:POST /login (日跨ぎ前）
+20:15:13.275841 整合性チェック Request:POST /login (日跨ぎ後）
+20:15:13.282826 整合性チェック Request:POST /admin/login 失敗の場合
+20:15:13.349092 整合性チェック Request:POST /admin/login
+20:15:13.410857 整合性チェック Request:GET /admin/user/{userID}
+20:15:13.517643 整合性チェック Request:POST /login 失敗の場合
+20:15:13.524980 整合性チェック Request:POST /user
+20:15:13.528564 整合性チェック Request:POST /login
+20:15:13.538959 整合性チェック Request:GET /user/{userId}/home セッション無効の場合
+20:15:13.541138 整合性チェック Request:GET /user/{userId}/home
+20:15:13.543817 整合性チェック Request:GET /user/{userId}/home 他人のホーム表示の場合
+20:15:13.545570 [ValidationScenario] 整合性チェックを終了します
+20:15:13.545576 整合性チェックに失敗しました
+20:15:16.545789 [VALIDATION_ERR] prepare: validation-error-invalid-status-code: GET  /user/0/home の Response の　HTTP Status Code が違います : expected(403) != actual(401)
+20:15:16.545804 続行不可能なエラーが検出されたので、ここで処理を終了します。
+20:15:16.545813 [PASSED]: false
+20:15:16.545815 [SCORE] 0 (addition: 0, deduction: 0)
+[ADMIN] 20:15:16.545839 [SCORE] map[GET /user/:userId/gacha/index:0 GET /user/:userId/home:0 GET /user/:userId/item:0 GET /user/:userId/present/index/:n:0 POST /login:0 POST /login(ban):0 POST /user:0 POST /user/:userId/card:0 POST /user/:userId/card/addexp/:cardId:0 POST /user/:userId/gacha/draw/:gachaId:0 POST /user/:userId/present/receive:0 POST /user/:userId/reward:0]
+
+SCORE: 0
+BENCHMARK_FAIL
+2026-09-24T20:15:16.683160267Z	BENCHMARK_END
