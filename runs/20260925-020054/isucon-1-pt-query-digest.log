@@ -1,0 +1,267 @@
+
+# 440ms user time, 50ms system time, 59.34M rss, 415.15G vsz
+# Current date: Fri Sep 25 02:05:03 2026
+# Hostname: YusukenoMac-mini.local
+# Files: raw/mysql-slow-isucon-1.log
+# Overall: 648 total, 23 unique, 7.36 QPS, 1.22x concurrency _____________
+# Time range: 2026-09-24T17:01:02 to 2026-09-24T17:02:30
+# Attribute          total     min     max     avg     95%  stddev  median
+# ============     ======= ======= ======= ======= ======= ======= =======
+# Exec time           108s   100ms      7s   166ms   253ms   261ms   134ms
+# Lock time          146ms       0   121ms   225us     1us     5ms     1us
+# Rows sent          1.33k       0      39    2.11   24.84    7.21       0
+# Rows examine     308.26k       0 235.99k  487.12   38.53   9.43k   27.38
+# Query size        72.81M       6 1008.95k 115.06k 961.27k 303.60k  463.90
+
+# Profile
+# Rank Query ID                            Response time Calls R/Call V/M 
+# ==== =================================== ============= ===== ====== ====
+#    1 0x6E790EE92EFF4755B6E0FA83F9CA8363  68.7747 63.8%   452 0.1522  0.01 UPDATE user_presents
+#    2 0x2096778F723F6666B5D7DDC9D01010C7  10.3744  9.6%    46 0.2255  0.02 INSERT user_cards
+#    3 0x79A889ED30BFA8BF517F86F6D70065B6   6.6769  6.2%     1 6.6769  0.00 LOAD DATA user_presents
+#    4 0x03FFA53B9AEA23779E51FE7DD3DC165E   6.5344  6.1%    49 0.1334  0.00 INSERT user_presents
+#    5 0xE89B4FB5E77ED142BEAF8C3B369FA2FE   4.0191  3.7%    33 0.1218  0.00 SELECT user_presents
+#    6 0x4112BAFCAD857E650001A24863DBA0F1   3.1740  2.9%    15 0.2116  0.04 INSERT user_present_all_received_history
+#    7 0x611363ACBD1690538F137757E45B738C   2.7073  2.5%    22 0.1231  0.00 SELECT user_presents
+#    8 0x13D274D305314539C3CEC5658CA257A8   1.6294  1.5%     8 0.2037  0.03 INSERT user_items
+# MISC 0xMISC                               3.8802  3.6%    22 0.1764   0.0 <15 ITEMS>
+
+# Query 1: 11.30 QPS, 1.72x concurrency, ID 0x6E790EE92EFF4755B6E0FA83F9CA8363 at byte 76177006
+# Scores: V/M = 0.01
+# Time range: 2026-09-24T17:01:50 to 2026-09-24T17:02:30
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         69     452
+# Exec time     63     69s   100ms   333ms   152ms   241ms    47ms   134ms
+# Lock time     13    19ms       0    10ms    42us     1us   521us     1us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   4  12.94k      10      39   29.31   38.53    7.59   27.38
+# Query size     0 211.08k     222     604  478.19  592.07  100.26  463.90
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+UPDATE user_presents SET deleted_at=1661706122, updated_at=1661706122 WHERE id IN (100012179603, 100012179605, 100012179607, 100012179609, 100012179611, 100012179613, 100012179615, 100012179617, 100012179619, 100012179621, 100012179623, 100012179625, 100012179627, 100012179629, 100012179631, 100012179633, 100012179635, 100012179637, 100012179639, 100012179641, 100012179643, 100012179645, 100012179647, 100012179649, 100012179651, 100012179653, 100012179655, 100012179657)\G
+# Converted for EXPLAIN
+# EXPLAIN /*!50100 PARTITIONS*/
+select  deleted_at=1661706122, updated_at=1661706122 from user_presents where  id IN (100012179603, 100012179605, 100012179607, 100012179609, 100012179611, 100012179613, 100012179615, 100012179617, 100012179619, 100012179621, 100012179623, 100012179625, 100012179627, 100012179629, 100012179631, 100012179633, 100012179635, 100012179637, 100012179639, 100012179641, 100012179643, 100012179645, 100012179647, 100012179649, 100012179651, 100012179653, 100012179655, 100012179657)\G
+
+# Query 2: 4.60 QPS, 1.04x concurrency, ID 0x2096778F723F6666B5D7DDC9D01010C7 at byte 35050353
+# Scores: V/M = 0.02
+# Time range: 2026-09-24T17:01:04 to 2026-09-24T17:01:14
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          7      46
+# Exec time      9     10s   171ms   560ms   226ms   339ms    67ms   198ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    62  45.18M 970.86k 1006.59k 1005.76k 961.27k       0 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_cards'\G
+#    SHOW CREATE TABLE `isucon`.`user_cards`\G
+INSERT INTO `user_cards` VALUES (74058928079,9909014657,6,780,39,8643,1584709110,1584709110,NULL) /*... omitted ...*/\G
+
+# Query 3: 0 QPS, 0x concurrency, ID 0x79A889ED30BFA8BF517F86F6D70065B6 at byte 76010889
+# Scores: V/M = 0.00
+# Time range: all events occurred at 2026-09-24T17:01:29
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          0       1
+# Exec time      6      7s      7s      7s      7s      7s       0      7s
+# Lock time      0     4us     4us     4us     4us     4us       0     4us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     0     146     146     146     146     146       0     146
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms
+#    1s  ################################################################
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+LOAD DATA INFILE '/var/lib/mysql-files/5_user_presents_not_receive_data.tsv' REPLACE INTO TABLE user_presents FIELDS ESCAPED BY '|' IGNORE 1 LINES\G
+
+# Query 4: 1.29 QPS, 0.17x concurrency, ID 0x03FFA53B9AEA23779E51FE7DD3DC165E at byte 76028751
+# Scores: V/M = 0.00
+# Time range: 2026-09-24T17:01:52 to 2026-09-24T17:02:30
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          7      49
+# Exec time      6      7s   101ms   195ms   133ms   171ms    24ms   122ms
+# Lock time      3     5ms       0     4ms   106us     1us   582us     1us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     0 114.33k     240   3.43k   2.33k   3.35k   1.03k   1.78k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+INSERT INTO user_presents(id, user_id, sent_at, item_type, item_id, amount, present_message, created_at, updated_at) VALUES (100012161744, 7670057973, 1661706112, 3, 18, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161745, 7670057973, 1661706112, 2, 3, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161746, 7670057973, 1661706112, 3, 18, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161747, 7670057973, 1661706112, 3, 17, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161748, 7670057973, 1661706112, 2, 4, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161749, 7670057973, 1661706112, 3, 18, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161750, 7670057973, 1661706112, 2, 2, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161751, 7670057973, 1661706112, 4, 27, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161752, 7670057973, 1661706112, 4, 21, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112),(100012161753, 7670057973, 1661706112, 3, 17, 1, '3周年ガチャの付与アイテムです', 1661706112, 1661706112)\G
+
+# Query 5: 0.89 QPS, 0.11x concurrency, ID 0xE89B4FB5E77ED142BEAF8C3B369FA2FE at byte 76319033
+# Scores: V/M = 0.00
+# Time range: 2026-09-24T17:01:53 to 2026-09-24T17:02:30
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          5      33
+# Exec time      3      4s   100ms   181ms   122ms   141ms    17ms   116ms
+# Lock time      0   556us     1us   499us    16us     2us    83us     1us
+# Rows sent     59     820      10      39   24.85   36.69    8.99   27.38
+# Rows examine   0     820      10      39   24.85   36.69    8.99   27.38
+# Query size     0  12.90k     203     583  400.21  537.02  122.27  441.81
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+# EXPLAIN /*!50100 PARTITIONS*/
+SELECT * FROM user_presents WHERE id IN (100012210493, 100012210495, 100012210497, 100012210499, 100012210501, 100012210503, 100012210505, 100012210507, 100012210509, 100012210511, 100012210513, 100012210515, 100012210517, 100012210519, 100012210521, 97052429692, 68174382562, 63102488283, 38357923638, 17478434489, 76225222456, 26147745417, 74982643391, 10598053040, 42354634024, 67240691942, 11085997105, 52229020899, 39724158375, 78614428976, 10277263653, 38242908843, 55377418745, 10579630549, 857188529, 47404623323, 3052640701, 42617260005) AND deleted_at IS NULL\G
+
+# Query 6: 5 QPS, 1.06x concurrency, ID 0x4112BAFCAD857E650001A24863DBA0F1 at byte 68791459
+# Scores: V/M = 0.04
+# Time range: 2026-09-24T17:01:18 to 2026-09-24T17:01:21
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          2      15
+# Exec time      2      3s   154ms   477ms   212ms   374ms    86ms   171ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    20  14.74M 1006.37k 1006.64k 1006.59k 961.27k       0 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_present_all_received_history'\G
+#    SHOW CREATE TABLE `isucon`.`user_present_all_received_history`\G
+INSERT INTO `user_present_all_received_history` VALUES (58814233642,2032484699,16,1622473200,1622473200,1622473200,NULL) /*... omitted ...*/\G
+
+# Query 7: 0.58 QPS, 0.07x concurrency, ID 0x611363ACBD1690538F137757E45B738C at byte 76099059
+# Scores: V/M = 0.00
+# Time range: 2026-09-24T17:01:52 to 2026-09-24T17:02:30
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          3      22
+# Exec time      2      3s   101ms   205ms   123ms   148ms    24ms   110ms
+# Lock time      0    34us     1us     2us     1us     1us       0     1us
+# Rows sent     38     522      10      39   23.73   36.69    9.83   27.38
+# Rows examine   0     522      10      39   23.73   36.69    9.83   27.38
+# Query size     0   2.79k     126     131  129.64  130.47    2.50  124.25
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+# EXPLAIN /*!50100 PARTITIONS*/
+SELECT * FROM user_presents 
+	WHERE user_id = 6134773260 AND deleted_at IS NULL
+	ORDER BY created_at DESC, id
+	LIMIT 101 OFFSET 0\G
+
+# Query 8: 8 QPS, 1.63x concurrency, ID 0x13D274D305314539C3CEC5658CA257A8 at byte 49758366
+# Scores: V/M = 0.03
+# Time range: 2026-09-24T17:01:16 to 2026-09-24T17:01:17
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          1       8
+# Exec time      1      2s   125ms   399ms   204ms   393ms    76ms   184ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    10   7.57M 716.14k 1005.06k 968.89k 961.27k  91.98k 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_items'\G
+#    SHOW CREATE TABLE `isucon`.`user_items`\G
+INSERT INTO `user_items` VALUES (1167064,5412259060,3,20,2,1632245312,1632245312,NULL) /*... omitted ...*/\G

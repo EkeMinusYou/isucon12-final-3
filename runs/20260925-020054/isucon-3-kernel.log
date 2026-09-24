@@ -1,0 +1,13 @@
+# host=isucon-3 kernel load_window=2026-09-24T17:00:58.297345847Z..2026-09-24T17:02:33.067500151Z
+2026-09-24T17:01:33.580008+0000 ip-172-31-36-222 kernel: loop8: detected capacity change from 0 to 130632
+2026-09-24T17:01:36.859650+0000 ip-172-31-36-222 kernel: loop9: detected capacity change from 0 to 235904
+2026-09-24T17:01:37.829535+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269297.821:92): apparmor="STATUS" operation="profile_replace" info="same as current profile, skipping" profile="unconfined" name="/snap/snapd/27738/usr/lib/snapd/snap-confine" pid=29982 comm="apparmor_parser"
+2026-09-24T17:01:37.957523+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269297.949:93): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.activate" pid=29984 comm="apparmor_parser"
+2026-09-24T17:01:38.077528+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269298.069:94): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.benchmark" pid=29985 comm="apparmor_parser"
+2026-09-24T17:01:38.201527+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269298.193:95): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.buginfo" pid=29986 comm="apparmor_parser"
+2026-09-24T17:01:38.329528+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269298.321:96): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.check-kernel" pid=29987 comm="apparmor_parser"
+2026-09-24T17:01:38.489449+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269298.481:97): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.daemon" pid=29988 comm="apparmor_parser"
+2026-09-24T17:01:38.649518+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269298.641:98): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.hook.configure" pid=29989 comm="apparmor_parser"
+2026-09-24T17:01:38.757512+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269298.749:99): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.hook.install" pid=29990 comm="apparmor_parser"
+2026-09-24T17:01:38.885535+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269298.877:100): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.hook.remove" pid=29991 comm="apparmor_parser"
+2026-09-24T17:01:39.005527+0000 ip-172-31-36-222 kernel: audit: type=1400 audit(1790269298.997:101): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.lxc" pid=29992 comm="apparmor_parser"
