@@ -57,13 +57,13 @@ vars:
       isucon-3: 172.31.36.222
       isucon-4: 172.31.36.71
       isucon-5: 172.31.33.164
-  APP_HOSTS: isucon-1 isucon-2 isucon-3 isucon-4 isucon-5
-  APP_TRAFFIC_HOSTS: isucon-1 isucon-2 isucon-3 isucon-4 isucon-5
-  NGINX_HOSTS: isucon-1 isucon-2 isucon-3 isucon-4 isucon-5
+  APP_HOSTS: isucon-1
+  APP_TRAFFIC_HOSTS: isucon-1
+  NGINX_HOSTS: isucon-1
   # MYSQL_HOST is the detailed measurement source and default DB connection.
   MYSQL_HOST: isucon-1
   # Deployment and service enable/disable targets; preserve the single-host default.
-  MYSQL_HOSTS: isucon-1 isucon-2 isucon-3 isucon-4 isucon-5
+  MYSQL_HOSTS: isucon-1
   CONF_SRC: isucon-1
   # <<< contest values <<<
 
