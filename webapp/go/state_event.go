@@ -15,6 +15,7 @@ import (
 
 const (
 	stateEventVersion   = 1
+	stateWriterLanes    = 2
 	stateBatchSize      = 32
 	stateBatchDelay     = time.Millisecond
 	stateSnapshotEvents = 64
@@ -180,29 +181,32 @@ type eventAppend struct {
 }
 
 type eventWriter struct {
-	db    *sqlx.DB
-	queue chan *eventAppend
+	db     *sqlx.DB
+	queues [stateWriterLanes]chan *eventAppend
 }
 
 func newEventWriter(db *sqlx.DB) *eventWriter {
-	w := &eventWriter{db: db, queue: make(chan *eventAppend, 4096)}
-	go w.run()
+	w := &eventWriter{db: db}
+	for i := range w.queues {
+		w.queues[i] = make(chan *eventAppend, 4096/stateWriterLanes)
+		go w.run(w.queues[i])
+	}
 	return w
 }
 
 func (w *eventWriter) append(req *eventAppend) error {
-	w.queue <- req
+	w.queues[uint64(req.userID)%uint64(len(w.queues))] <- req
 	return <-req.done
 }
 
-func (w *eventWriter) run() {
-	for first := range w.queue {
+func (w *eventWriter) run(queue <-chan *eventAppend) {
+	for first := range queue {
 		batch := []*eventAppend{first}
 		timer := time.NewTimer(stateBatchDelay)
 	collect:
 		for len(batch) < stateBatchSize {
 			select {
-			case req := <-w.queue:
+			case req := <-queue:
 				batch = append(batch, req)
 			case <-timer.C:
 				break collect
