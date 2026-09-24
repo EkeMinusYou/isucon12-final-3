@@ -1,0 +1,293 @@
+
+# 470ms user time, 90ms system time, 58.56M rss, 415.15G vsz
+# Current date: Fri Sep 25 03:06:28 2026
+# Hostname: YusukenoMac-mini.local
+# Files: raw/mysql-slow-isucon-1.log
+# Overall: 153 total, 17 unique, 2.22 QPS, 0.67x concurrency _____________
+# Time range: 2026-09-24T18:02:29 to 2026-09-24T18:03:38
+# Attribute          total     min     max     avg     95%  stddev  median
+# ============     ======= ======= ======= ======= ======= ======= =======
+# Exec time            46s   101ms      4s   302ms   816ms   395ms   180ms
+# Lock time          107us       0    13us       0     1us     1us       0
+# Rows sent         13.55k       0     648   90.69  621.67  206.33       0
+# Rows examine      27.13k       0   1.27k  181.59   1.20k  409.75       0
+# Query size        72.28M       6 1008.95k 483.73k 961.27k 475.92k  11.91k
+
+# Profile
+# Rank Query ID                            Response time Calls R/Call V/M 
+# ==== =================================== ============= ===== ====== ====
+#    1 0x36E362BD8D53959091CA18638EB8347E  16.3649 35.4%    34 0.4813  0.23 UPDATE user_state_core
+#    2 0x2096778F723F6666B5D7DDC9D01010C7   9.8457 21.3%    46 0.2140  0.01 INSERT user_cards
+#    3 0x79A889ED30BFA8BF517F86F6D70065B6   4.3858  9.5%     1 4.3858  0.00 LOAD DATA user_presents
+#    4 0x4823015A58EC4A4049A5E1A002F5CF68   3.9289  8.5%    25 0.1572  0.01 SELECT user_presents
+#    5 0x4112BAFCAD857E650001A24863DBA0F1   2.8133  6.1%    15 0.1876  0.02 INSERT user_present_all_received_history
+#    6 0x509597DFC0DFA5F201F1390856EC25C3   2.4721  5.3%     3 0.8240  0.00 INSERT UPDATE user_state_inbox
+#    7 0x13D274D305314539C3CEC5658CA257A8   1.6318  3.5%     8 0.2040  0.03 INSERT user_items
+#    8 0x7B5C92D21BF3F462A5DBEF9533B01DD1   1.5044  3.3%     6 0.2507  0.23 INSERT user_sessions
+#    9 0xCBB580CAFF296A0D81CB1A34B54BA03E   1.1562  2.5%     4 0.2891  0.32 INSERT UPDATE user_state_inventory
+# MISC 0xMISC                               2.1542  4.7%    11 0.1958   0.0 <8 ITEMS>
+
+# Query 1: 34 QPS, 16.36x concurrency, ID 0x36E362BD8D53959091CA18638EB8347E at byte 75599788
+# Scores: V/M = 0.23
+# Time range: 2026-09-24T18:03:04 to 2026-09-24T18:03:05
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         22      34
+# Exec time     35     16s   131ms   827ms   481ms   816ms   331ms   777ms
+# Lock time     37    40us     1us     2us     1us     1us       0     1us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0      34       1       1       1       1       0       1
+# Query size     0 171.20k   4.87k   5.43k   5.04k   5.20k  191.92   4.95k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_state_core'\G
+#    SHOW CREATE TABLE `isucon`.`user_state_core`\G
+UPDATE user_state_core SET revision=revision+1, payload=_binary'{\"user\":{\"id\":100015037114,\"isuCoin\":73500,\"lastGetRewardAt\":1661623384,\"lastActivatedAt\":1661623384,\"registeredAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},\"banned\":false,\"devices\":[{\"id\":100015037115,\"userId\":100015037114,\"platformId\":\"1986041\",\"platformType\":1,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"decks\":[{\"id\":100015037119,\"userId\":100015037114,\"cardId1\":100015037116,\"cardId2\":100015037117,\"cardId3\":100015037118,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"loginBonuses\":[{\"id\":100015037120,\"userId\":100015037114,\"loginBonusId\":1,\"lastRewardSequence\":1,\"loopCount\":1,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037121,\"userId\":100015037114,\"loginBonusId\":2,\"lastRewardSequence\":1,\"loopCount\":1,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037122,\"userId\":100015037114,\"loginBonusId\":4,\"lastRewardSequence\":1,\"loopCount\":1,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"presentHistory\":[{\"id\":100015037124,\"userId\":100015037114,\"presentAllId\":1,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037126,\"userId\":100015037114,\"presentAllId\":3,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037128,\"userId\":100015037114,\"presentAllId\":4,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037130,\"userId\":100015037114,\"presentAllId\":5,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037132,\"userId\":100015037114,\"presentAllId\":6,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037134,\"userId\":100015037114,\"presentAllId\":7,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037136,\"userId\":100015037114,\"presentAllId\":8,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037138,\"userId\":100015037114,\"presentAllId\":9,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037140,\"userId\":100015037114,\"presentAllId\":10,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037142,\"userId\":100015037114,\"presentAllId\":11,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037144,\"userId\":100015037114,\"presentAllId\":12,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037146,\"userId\":100015037114,\"presentAllId\":13,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037148,\"userId\":100015037114,\"presentAllId\":14,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037150,\"userId\":100015037114,\"presentAllId\":15,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037152,\"userId\":100015037114,\"presentAllId\":16,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037154,\"userId\":100015037114,\"presentAllId\":17,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037156,\"userId\":100015037114,\"presentAllId\":18,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037158,\"userId\":100015037114,\"presentAllId\":19,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037160,\"userId\":100015037114,\"presentAllId\":20,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037162,\"userId\":100015037114,\"presentAllId\":21,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037164,\"userId\":100015037114,\"presentAllId\":22,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037166,\"userId\":100015037114,\"presentAllId\":23,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037168,\"userId\":100015037114,\"presentAllId\":24,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037170,\"userId\":100015037114,\"presentAllId\":25,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037172,\"userId\":100015037114,\"presentAllId\":26,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037174,\"userId\":100015037114,\"presentAllId\":27,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037176,\"userId\":100015037114,\"presentAllId\":28,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"token\":{\"id\":100015037436,\"userId\":100015037114,\"token\":\"88c5f853-9f6c-45fc-aaa0-bd90a75eff7b\",\"tokenType\":1,\"expiredAt\":1661623984,\"createdAt\":1661623384,\"updatedAt\":1661623384}}' WHERE user_id=100015037114 AND revision=2\G
+# Converted for EXPLAIN
+# EXPLAIN /*!50100 PARTITIONS*/
+select  revision=revision+1, payload=_binary'{\"user\":{\"id\":100015037114,\"isuCoin\":73500,\"lastGetRewardAt\":1661623384,\"lastActivatedAt\":1661623384,\"registeredAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},\"banned\":false,\"devices\":[{\"id\":100015037115,\"userId\":100015037114,\"platformId\":\"1986041\",\"platformType\":1,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"decks\":[{\"id\":100015037119,\"userId\":100015037114,\"cardId1\":100015037116,\"cardId2\":100015037117,\"cardId3\":100015037118,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"loginBonuses\":[{\"id\":100015037120,\"userId\":100015037114,\"loginBonusId\":1,\"lastRewardSequence\":1,\"loopCount\":1,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037121,\"userId\":100015037114,\"loginBonusId\":2,\"lastRewardSequence\":1,\"loopCount\":1,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037122,\"userId\":100015037114,\"loginBonusId\":4,\"lastRewardSequence\":1,\"loopCount\":1,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"presentHistory\":[{\"id\":100015037124,\"userId\":100015037114,\"presentAllId\":1,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037126,\"userId\":100015037114,\"presentAllId\":3,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037128,\"userId\":100015037114,\"presentAllId\":4,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037130,\"userId\":100015037114,\"presentAllId\":5,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037132,\"userId\":100015037114,\"presentAllId\":6,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037134,\"userId\":100015037114,\"presentAllId\":7,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037136,\"userId\":100015037114,\"presentAllId\":8,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037138,\"userId\":100015037114,\"presentAllId\":9,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037140,\"userId\":100015037114,\"presentAllId\":10,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037142,\"userId\":100015037114,\"presentAllId\":11,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037144,\"userId\":100015037114,\"presentAllId\":12,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037146,\"userId\":100015037114,\"presentAllId\":13,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037148,\"userId\":100015037114,\"presentAllId\":14,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037150,\"userId\":100015037114,\"presentAllId\":15,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037152,\"userId\":100015037114,\"presentAllId\":16,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037154,\"userId\":100015037114,\"presentAllId\":17,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037156,\"userId\":100015037114,\"presentAllId\":18,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037158,\"userId\":100015037114,\"presentAllId\":19,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037160,\"userId\":100015037114,\"presentAllId\":20,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037162,\"userId\":100015037114,\"presentAllId\":21,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037164,\"userId\":100015037114,\"presentAllId\":22,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037166,\"userId\":100015037114,\"presentAllId\":23,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037168,\"userId\":100015037114,\"presentAllId\":24,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037170,\"userId\":100015037114,\"presentAllId\":25,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037172,\"userId\":100015037114,\"presentAllId\":26,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037174,\"userId\":100015037114,\"presentAllId\":27,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037176,\"userId\":100015037114,\"presentAllId\":28,\"receivedAt\":1661623384,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"token\":{\"id\":100015037436,\"userId\":100015037114,\"token\":\"88c5f853-9f6c-45fc-aaa0-bd90a75eff7b\",\"tokenType\":1,\"expiredAt\":1661623984,\"createdAt\":1661623384,\"updatedAt\":1661623384}}' from user_state_core where  user_id=100015037114 AND revision=2\G
+
+# Query 2: 4.60 QPS, 0.98x concurrency, ID 0x2096778F723F6666B5D7DDC9D01010C7 at byte 426
+# Scores: V/M = 0.01
+# Time range: 2026-09-24T18:02:30 to 2026-09-24T18:02:40
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         30      46
+# Exec time     21     10s   167ms   358ms   214ms   308ms    47ms   189ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    62  45.18M 970.86k 1006.59k 1005.76k 961.27k       0 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_cards'\G
+#    SHOW CREATE TABLE `isucon`.`user_cards`\G
+INSERT INTO `user_cards` VALUES (1042148,9904038980,6,720,36,5336,1639932222,1639932222,NULL) /*... omitted ...*/\G
+
+# Query 3: 0 QPS, 0x concurrency, ID 0x79A889ED30BFA8BF517F86F6D70065B6 at byte 75563838
+# Scores: V/M = 0.00
+# Time range: all events occurred at 2026-09-24T18:02:52
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          0       1
+# Exec time      9      4s      4s      4s      4s      4s       0      4s
+# Lock time      1     2us     2us     2us     2us     2us       0     2us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     0     146     146     146     146     146       0     146
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms
+#    1s  ################################################################
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+LOAD DATA INFILE '/var/lib/mysql-files/5_user_presents_not_receive_data.tsv' REPLACE INTO TABLE user_presents FIELDS ESCAPED BY '|' IGNORE 1 LINES\G
+
+# Query 4: 3.12 QPS, 0.49x concurrency, ID 0x4823015A58EC4A4049A5E1A002F5CF68 at byte 75815340
+# Scores: V/M = 0.01
+# Time range: 2026-09-24T18:03:09 to 2026-09-24T18:03:17
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         16      25
+# Exec time      8      4s   103ms   228ms   157ms   219ms    39ms   141ms
+# Lock time     31    34us     1us     2us     1us     1us       0     1us
+# Rows sent     99  13.43k     321     648  549.96  621.67  132.17  621.67
+# Rows examine  98  26.85k     642   1.27k   1.07k   1.20k  261.49   1.20k
+# Query size     0   2.07k      84      85   84.92   84.10    0.50   84.10
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_presents'\G
+#    SHOW CREATE TABLE `isucon`.`user_presents`\G
+# EXPLAIN /*!50100 PARTITIONS*/
+SELECT * FROM user_presents WHERE user_id=3488870528 AND id<=100000000000 ORDER BY id\G
+
+# Query 5: 5 QPS, 0.94x concurrency, ID 0x4112BAFCAD857E650001A24863DBA0F1 at byte 59066266
+# Scores: V/M = 0.02
+# Time range: 2026-09-24T18:02:44 to 2026-09-24T18:02:47
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          9      15
+# Exec time      6      3s   141ms   355ms   188ms   308ms    57ms   163ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    20  14.74M 1006.37k 1006.64k 1006.59k 961.27k       0 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_present_all_received_history'\G
+#    SHOW CREATE TABLE `isucon`.`user_present_all_received_history`\G
+INSERT INTO `user_present_all_received_history` VALUES (1148363,538842799,21,1635692400,1635692400,1635692400,NULL) /*... omitted ...*/\G
+
+# Query 6: 0 QPS, 0x concurrency, ID 0x509597DFC0DFA5F201F1390856EC25C3 at byte 75588716
+# Scores: V/M = 0.00
+# Time range: all events occurred at 2026-09-24T18:03:04
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          1       3
+# Exec time      5      2s   821ms   829ms   824ms   816ms       0   816ms
+# Lock time      3     4us     1us     2us     1us     1us       0     1us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     0   7.03k     453   6.12k   2.34k   6.01k   2.63k  463.90
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_state_inbox'\G
+#    SHOW CREATE TABLE `isucon`.`user_state_inbox`\G
+INSERT INTO user_state_inbox(user_id,payload) VALUES (4919356066,_binary'{\"dynamic\":null,\"received\":{\"15386970470\":1661623384,\"20645988327\":1661623384,\"21024912246\":1661623384,\"27266010119\":1661623384,\"34596299709\":1661623384,\"48932865123\":1661623384,\"50681915397\":1661623384,\"84038193892\":1661623384,\"84316677209\":1661623384,\"90138048618\":1661623384,\"99419252617\":1661623384}}') ON DUPLICATE KEY UPDATE payload=VALUES(payload)\G
+
+# Query 7: 8 QPS, 1.63x concurrency, ID 0x13D274D305314539C3CEC5658CA257A8 at byte 49311570
+# Scores: V/M = 0.03
+# Time range: 2026-09-24T18:02:42 to 2026-09-24T18:02:43
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          5       8
+# Exec time      3      2s   124ms   404ms   204ms   393ms    77ms   189ms
+# Lock time      0       0       0       0       0       0       0       0
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size    10   7.57M 716.14k 1005.06k 968.89k 961.27k  91.98k 961.27k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_items'\G
+#    SHOW CREATE TABLE `isucon`.`user_items`\G
+INSERT INTO `user_items` VALUES (1167064,5412259060,3,20,2,1632245312,1632245312,NULL) /*... omitted ...*/\G
+
+# Query 8: 6 QPS, 1.50x concurrency, ID 0x7B5C92D21BF3F462A5DBEF9533B01DD1 at byte 75664141
+# Scores: V/M = 0.23
+# Time range: 2026-09-24T18:03:04 to 2026-09-24T18:03:05
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          3       6
+# Exec time      3      2s   131ms   813ms   251ms   777ms   240ms   128ms
+# Lock time      5     6us     1us     1us     1us     1us       0     1us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     0   1.09k     185     188  186.17  183.58       0  183.58
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_sessions'\G
+#    SHOW CREATE TABLE `isucon`.`user_sessions`\G
+INSERT INTO user_sessions(id,user_id,session_id,created_at,updated_at,expired_at) VALUES (100015037444,5962277636,'6685808e-2bfd-4352-87e6-156f048ea8ae',1661623384,1661623384,1661709784)\G
+
+# Query 9: 0.40 QPS, 0.12x concurrency, ID 0xCBB580CAFF296A0D81CB1A34B54BA03E at byte 75564186
+# Scores: V/M = 0.32
+# Time range: 2026-09-24T18:03:04 to 2026-09-24T18:03:14
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count          2       4
+# Exec time      2      1s   107ms   816ms   289ms   816ms   305ms   469ms
+# Lock time      4     5us     1us     2us     1us     1us       0     1us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine   0       0       0       0       0       0       0       0
+# Query size     0  50.70k     622  24.60k  12.68k  23.58k   8.13k  18.35k
+# String:
+# Databases    isucon
+# Hosts        localhost
+# Users        isucon
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms
+# 100ms  ################################################################
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `isucon` LIKE 'user_state_inventory'\G
+#    SHOW CREATE TABLE `isucon`.`user_state_inventory`\G
+INSERT INTO user_state_inventory(user_id,payload) VALUES (100015037049,_binary'{\"cards\":[{\"id\":100015037051,\"userId\":100015037049,\"cardId\":2,\"amountPerSec\":1,\"level\":1,\"totalExp\":0,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037052,\"userId\":100015037049,\"cardId\":2,\"amountPerSec\":1,\"level\":1,\"totalExp\":0,\"createdAt\":1661623384,\"updatedAt\":1661623384},{\"id\":100015037053,\"userId\":100015037049,\"cardId\":2,\"amountPerSec\":1,\"level\":1,\"totalExp\":0,\"createdAt\":1661623384,\"updatedAt\":1661623384}],\"items\":null}') ON DUPLICATE KEY UPDATE payload=VALUES(payload)\G

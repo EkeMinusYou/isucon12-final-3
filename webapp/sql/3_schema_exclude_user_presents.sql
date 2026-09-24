@@ -1,6 +1,9 @@
 USE `isucon`;
 
 DROP TABLE IF EXISTS `admin_sessions`;
+DROP TABLE IF EXISTS `user_state_core`;
+DROP TABLE IF EXISTS `user_state_inventory`;
+DROP TABLE IF EXISTS `user_state_inbox`;
 DROP TABLE IF EXISTS `user_sessions`;
 DROP TABLE IF EXISTS `user_one_time_tokens`;
 DROP TABLE IF EXISTS `users`;
@@ -31,6 +34,25 @@ CREATE TABLE `users` (
   `deleted_at` bigint default NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE `user_state_core` (
+  `user_id` bigint NOT NULL,
+  `revision` bigint NOT NULL,
+  `payload` mediumblob NOT NULL,
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB;
+
+CREATE TABLE `user_state_inventory` (
+  `user_id` bigint NOT NULL,
+  `payload` mediumblob NOT NULL,
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB;
+
+CREATE TABLE `user_state_inbox` (
+  `user_id` bigint NOT NULL,
+  `payload` mediumblob NOT NULL,
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB;
 
 CREATE TABLE `user_decks` (
   `id` bigint NOT NULL,
