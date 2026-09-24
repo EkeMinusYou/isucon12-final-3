@@ -1,4 +1,5 @@
 runs/analysis.duckdb
+# contest: ISUCON12 final database seed assets needed for db-recreate in each worktree.
 webapp/sql/setup/2_init.sql
 webapp/sql/4_alldata_exclude_user_presents.sql
 webapp/sql/5_user_presents_not_receive_data.tsv
