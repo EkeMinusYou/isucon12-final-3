@@ -6,20 +6,24 @@ func TestStateCacheKeepsCommittedSnapshot(t *testing.T) {
 	cache := newStateStore()
 	st := &userState{ID: 17, Revision: 3, Core: stateCore{User: &User{ID: 17, IsuCoin: 100}, Banned: true},
 		Inbox: stateInbox{Received: map[int64]int64{5: 10}}}
-	cache.put(st)
-	st.Core.User.IsuCoin = 200
-	st.Inbox.Received[5] = 20
-	got, ok, err := cache.get(17)
-	if err != nil || !ok {
-		t.Fatalf("get: ok=%v err=%v", ok, err)
+	cache.putOwned(st)
+	got, ok := cache.get(17)
+	if !ok {
+		t.Fatal("committed state missing from cache")
+	}
+	got.Core.User.IsuCoin = 200
+	got.Inbox.Received[5] = 20
+	got, ok = cache.get(17)
+	if !ok {
+		t.Fatal("committed state missing from cache")
 	}
 	if got.Revision != 3 || got.Core.User.IsuCoin != 100 || got.Inbox.Received[5] != 10 || !got.Core.Banned {
 		t.Fatalf("cache exposed uncommitted mutation: %+v", got)
 	}
 	got.Core.User.IsuCoin = 300
-	again, _, err := cache.get(17)
-	if err != nil || again.Core.User.IsuCoin != 100 {
-		t.Fatalf("cache exposed reader mutation: %+v, %v", again, err)
+	again, ok := cache.get(17)
+	if !ok || again.Core.User.IsuCoin != 100 {
+		t.Fatalf("cache exposed reader mutation: %+v", again)
 	}
 }
 

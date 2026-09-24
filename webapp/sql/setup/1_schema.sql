@@ -6,6 +6,8 @@ DROP TABLE IF EXISTS `user_state_inventory`;
 DROP TABLE IF EXISTS `user_state_inbox`;
 DROP TABLE IF EXISTS `user_sessions`;
 DROP TABLE IF EXISTS `user_one_time_tokens`;
+DROP TABLE IF EXISTS `user_state_events`;
+DROP TABLE IF EXISTS `user_session_current`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `user_decks`;
 DROP TABLE IF EXISTS `user_bans`;
@@ -274,6 +276,20 @@ CREATE TABLE `user_one_time_tokens` (
   PRIMARY KEY (`id`),
   UNIQUE uniq_token (`user_id`, `token`, `deleted_at`),
   KEY idx_token (`token`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE `user_state_events` (
+  `user_id` bigint NOT NULL,
+  `seq` bigint NOT NULL,
+  `payload` mediumblob NOT NULL,
+  PRIMARY KEY (`user_id`, `seq`)
+) ENGINE=InnoDB;
+
+CREATE TABLE `user_session_current` (
+  `user_id` bigint NOT NULL,
+  `session_id` varchar(128) NOT NULL,
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `uniq_session_id` (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 /* 管理者権限のセッション管理 */

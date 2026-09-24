@@ -51,6 +51,7 @@ type Handler struct {
 	IDs     *idAllocator
 	State   *stateStore
 	Masters *masterStore
+	Writer  *eventWriter
 }
 
 func main() {
@@ -85,6 +86,7 @@ func main() {
 		IDs:     ids,
 		State:   newStateStore(),
 		Masters: &masterStore{},
+		Writer:  newEventWriter(dbx),
 	}
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{}))
@@ -224,27 +226,54 @@ func (h *Handler) checkSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 			return errorResponse(c, http.StatusInternalServerError, ErrGetRequestTime)
 		}
 
-		userSession := new(Session)
-		query := "SELECT * FROM user_sessions WHERE session_id=? AND deleted_at IS NULL"
-		if err := h.DB.Get(userSession, query, sessID); err != nil {
+		owner, ok := h.State.sessionOwner(sessID)
+		if !ok {
+			err := h.DB.Get(&owner, "SELECT user_id FROM user_session_current WHERE session_id=?", sessID)
+			if err == nil {
+				h.State.rememberSession(sessID, owner)
+			}
 			if err == sql.ErrNoRows {
 				return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
 			}
-			return errorResponse(c, http.StatusInternalServerError, err)
+			if err != nil {
+				return errorResponse(c, http.StatusInternalServerError, err)
+			}
 		}
-
-		if userSession.UserID != userID {
+		if owner != userID {
+			unlock := h.State.lock(owner)
+			other, err := h.loadUserStateRead(owner)
+			unlock()
+			if err != nil || other.Core.Session == nil || other.Core.Session.SessionID != sessID {
+				h.State.forgetSession(sessID)
+				return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
+			}
 			return errorResponse(c, http.StatusForbidden, ErrForbidden)
 		}
-
-		// 期限切れチェック
-		if userSession.ExpiredAt < requestAt {
-			query = "UPDATE user_sessions SET deleted_at=? WHERE session_id=?"
-			if _, err = h.DB.Exec(query, requestAt, sessID); err != nil {
+		unlock := h.State.lock(userID)
+		defer unlock()
+		st, err := h.loadUserStateRead(userID)
+		if err != nil {
+			return stateNotFound(c, err)
+		}
+		if st.Core.Banned {
+			return errorResponse(c, http.StatusForbidden, ErrForbidden)
+		}
+		if st.Core.Session == nil || st.Core.Session.SessionID != sessID {
+			h.State.forgetSession(sessID)
+			return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
+		}
+		if st.Core.Session.ExpiredAt < requestAt {
+			working, err := h.loadUserState(userID)
+			if err != nil {
+				return errorResponse(c, http.StatusInternalServerError, err)
+			}
+			working.Core.Session = nil
+			if err := h.saveUserState(working, true, false, false); err != nil {
 				return errorResponse(c, http.StatusInternalServerError, err)
 			}
 			return errorResponse(c, http.StatusUnauthorized, ErrExpiredSession)
 		}
+		c.Set("lockedUserID", userID)
 		identity := sha256.Sum256([]byte(sessID))
 		c.Response().Header().Set("X-Measurement-Session-ID", hex.EncodeToString(identity[:16]))
 
@@ -253,6 +282,13 @@ func (h *Handler) checkSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 		}
 		return nil
 	}
+}
+
+func (h *Handler) lockUser(c echo.Context, id int64) func() {
+	if locked, ok := c.Get("lockedUserID").(int64); ok && locked == id {
+		return func() {}
+	}
+	return h.State.lock(id)
 }
 
 // checkBan reads the ban flag from the user's committed state.

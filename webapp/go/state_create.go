@@ -3,7 +3,6 @@ package main
 import (
 	"net/http"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 )
 
@@ -24,7 +23,7 @@ func (h *Handler) stateCreateUser(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	unlock := h.State.lock(userID)
+	unlock := h.lockUser(c, userID)
 	defer unlock()
 	st := &userState{ID: userID}
 	st.Inbox.Received = make(map[int64]int64)
@@ -74,11 +73,8 @@ func (h *Handler) stateCreateUser(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	if err := h.saveUserState(st, true, true, true, func(tx *sqlx.Tx) error {
-		_, err := tx.Exec("INSERT INTO user_sessions(id,user_id,session_id,created_at,updated_at,expired_at) VALUES (?,?,?,?,?,?)",
-			sessionID, userID, sessionToken, at, at, at+86400)
-		return err
-	}); err != nil {
+	st.Core.Session = &Session{ID: sessionID, UserID: userID, SessionID: sessionToken, CreatedAt: at, UpdatedAt: at, ExpiredAt: at + 86400}
+	if err := h.saveUserState(st, true, true, true); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &CreateUserResponse{UserID: userID, ViewerID: req.ViewerID, SessionID: sessionToken,

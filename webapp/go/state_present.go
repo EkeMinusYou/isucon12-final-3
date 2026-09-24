@@ -6,41 +6,54 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 )
 
 const seedPresentMaxID int64 = 100000000000
 
 func (h *Handler) seedPresents(userID int64) ([]*UserPresent, error) {
+	if rows, ok := h.State.cachedSeed(userID); ok {
+		return rows, nil
+	}
 	result := make([]*UserPresent, 0)
-	err := h.DB.Select(&result, "SELECT * FROM user_presents WHERE user_id=? AND id<=? ORDER BY id", userID, seedPresentMaxID)
+	err := h.DB.Select(&result, "SELECT * FROM user_presents WHERE user_id=? AND id<=? ORDER BY created_at DESC,id ASC", userID, seedPresentMaxID)
+	if err == nil {
+		h.State.putSeed(userID, result)
+	}
 	return result, err
 }
 
 func combinedPresents(seed []*UserPresent, st *userState, includeReceived bool) []*UserPresent {
-	presents := make([]*UserPresent, 0, len(seed)+len(st.Inbox.Dynamic))
-	for _, original := range seed {
-		p := *original
-		if receivedAt, ok := st.Inbox.Received[p.ID]; ok {
-			p.UpdatedAt = receivedAt
-			p.DeletedAt = &receivedAt
+	return mergePresents(seed, st, includeReceived, 0)
+}
+
+func mergePresents(seed []*UserPresent, st *userState, includeReceived bool, limit int) []*UserPresent {
+	presents := make([]*UserPresent, 0)
+	i, j := 0, 0
+	for (i < len(seed) || j < len(st.Inbox.Dynamic)) && (limit == 0 || len(presents) < limit) {
+		useSeed := j >= len(st.Inbox.Dynamic)
+		if !useSeed && i < len(seed) {
+			a, b := seed[i], st.Inbox.Dynamic[j]
+			useSeed = a.CreatedAt > b.CreatedAt || (a.CreatedAt == b.CreatedAt && a.ID < b.ID)
 		}
-		if includeReceived || p.DeletedAt == nil {
-			presents = append(presents, &p)
+		if useSeed {
+			original := seed[i]
+			i++
+			p := *original
+			if receivedAt, ok := st.Inbox.Received[p.ID]; ok {
+				p.UpdatedAt, p.DeletedAt = receivedAt, &receivedAt
+			}
+			if includeReceived || p.DeletedAt == nil {
+				presents = append(presents, &p)
+			}
+		} else {
+			p := st.Inbox.Dynamic[j]
+			j++
+			if includeReceived || p.DeletedAt == nil {
+				presents = append(presents, p)
+			}
 		}
 	}
-	for _, p := range st.Inbox.Dynamic {
-		if includeReceived || p.DeletedAt == nil {
-			presents = append(presents, p)
-		}
-	}
-	sort.Slice(presents, func(i, j int) bool {
-		if presents[i].CreatedAt != presents[j].CreatedAt {
-			return presents[i].CreatedAt > presents[j].CreatedAt
-		}
-		return presents[i].ID < presents[j].ID
-	})
 	return presents
 }
 
@@ -56,7 +69,7 @@ func (h *Handler) stateListPresent(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusBadRequest, fmt.Errorf("invalid userID parameter"))
 	}
-	unlock := h.State.lock(id)
+	unlock := h.lockUser(c, id)
 	defer unlock()
 	st, err := h.loadUserStateRead(id)
 	if err != nil {
@@ -66,7 +79,7 @@ func (h *Handler) stateListPresent(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	all := combinedPresents(seed, st, false)
+	all := mergePresents(seed, st, false, n*PresentCountPerPage+1)
 	offset := PresentCountPerPage * (n - 1)
 	if offset >= len(all) {
 		return successResponse(c, &ListPresentResponse{Presents: []*UserPresent{}, IsNext: false})
@@ -95,7 +108,7 @@ func (h *Handler) stateReceivePresent(c echo.Context) error {
 	if len(req.PresentIDs) == 0 {
 		return errorResponse(c, http.StatusUnprocessableEntity, fmt.Errorf("presentIds is empty"))
 	}
-	unlock := h.State.lock(id)
+	unlock := h.lockUser(c, id)
 	defer unlock()
 	st, err := h.loadUserState(id)
 	if err != nil {
@@ -105,35 +118,33 @@ func (h *Handler) stateReceivePresent(c echo.Context) error {
 		return err
 	}
 	seen := make(map[int64]bool, len(req.PresentIDs))
-	seedIDs := make([]int64, 0, len(req.PresentIDs))
+	needSeed := false
+	for _, pid := range req.PresentIDs {
+		seen[pid] = true
+		if pid <= seedPresentMaxID {
+			needSeed = true
+		}
+	}
+	toReceive := make([]*UserPresent, 0, len(seen))
+	if needSeed {
+		seed, err := h.seedPresents(id)
+		if err != nil {
+			return errorResponse(c, http.StatusInternalServerError, err)
+		}
+		for _, original := range seed {
+			if !seen[original.ID] || original.DeletedAt != nil {
+				continue
+			}
+			if _, received := st.Inbox.Received[original.ID]; received {
+				continue
+			}
+			p := *original
+			toReceive = append(toReceive, &p)
+		}
+	}
 	dynamic := make(map[int64]*UserPresent, len(st.Inbox.Dynamic))
 	for _, p := range st.Inbox.Dynamic {
 		dynamic[p.ID] = p
-	}
-	for _, pid := range req.PresentIDs {
-		if seen[pid] {
-			continue
-		}
-		seen[pid] = true
-		if pid <= seedPresentMaxID {
-			seedIDs = append(seedIDs, pid)
-		}
-	}
-	toReceive := make([]*UserPresent, 0, len(req.PresentIDs))
-	if len(seedIDs) > 0 {
-		query, params, err := sqlx.In("SELECT * FROM user_presents WHERE user_id=? AND id IN (?) AND deleted_at IS NULL", id, seedIDs)
-		if err != nil {
-			return errorResponse(c, http.StatusBadRequest, err)
-		}
-		seed := make([]*UserPresent, 0, len(seedIDs))
-		if err := h.DB.Select(&seed, query, params...); err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
-		}
-		for _, p := range seed {
-			if _, received := st.Inbox.Received[p.ID]; !received {
-				toReceive = append(toReceive, p)
-			}
-		}
 	}
 	for _, pid := range req.PresentIDs {
 		if p := dynamic[pid]; p != nil && p.DeletedAt == nil {
@@ -155,7 +166,7 @@ func (h *Handler) stateReceivePresent(c echo.Context) error {
 			return stateGrantError(c, err)
 		}
 	}
-	if err := h.saveUserState(st, true, true, true, nil); err != nil {
+	if err := h.saveUserState(st, true, true, true); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &ReceivePresentResponse{UpdatedResources: makeUpdatedResources(at, nil, nil, nil, nil, nil, nil, toReceive)})
@@ -166,7 +177,7 @@ func (h *Handler) stateAdminUser(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusBadRequest, err)
 	}
-	unlock := h.State.lock(id)
+	unlock := h.lockUser(c, id)
 	defer unlock()
 	st, err := h.loadUserStateRead(id)
 	if err != nil {
@@ -230,7 +241,7 @@ func (h *Handler) stateAdminBanUser(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusBadRequest, err)
 	}
-	unlock := h.State.lock(id)
+	unlock := h.lockUser(c, id)
 	defer unlock()
 	st, err := h.loadUserState(id)
 	if err != nil {
@@ -240,7 +251,7 @@ func (h *Handler) stateAdminBanUser(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	st.Core.Banned = true
-	if err := h.saveUserState(st, true, false, false, nil); err != nil {
+	if err := h.saveUserState(st, true, false, false); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &AdminBanUserResponse{User: st.Core.User})

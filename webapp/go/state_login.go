@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 )
 
@@ -144,7 +143,7 @@ func (h *Handler) stateLogin(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	unlock := h.State.lock(req.UserID)
+	unlock := h.lockUser(c, req.UserID)
 	defer unlock()
 	st, err := h.loadUserState(req.UserID)
 	if err != nil {
@@ -185,13 +184,8 @@ func (h *Handler) stateLogin(c echo.Context) error {
 		st.Core.User.LastActivatedAt = at
 		st.Core.User.UpdatedAt = at
 	}
-	err = h.saveUserState(st, true, daily, daily, func(tx *sqlx.Tx) error {
-		if _, err := tx.Exec("UPDATE user_sessions SET deleted_at=? WHERE user_id=? AND deleted_at IS NULL", at, req.UserID); err != nil {
-			return err
-		}
-		_, err := tx.Exec("INSERT INTO user_sessions(id,user_id,session_id,created_at,updated_at,expired_at) VALUES (?,?,?,?,?,?)", id, req.UserID, sessID, at, at, at+86400)
-		return err
-	})
+	st.Core.Session = &Session{ID: id, UserID: req.UserID, SessionID: sessID, CreatedAt: at, UpdatedAt: at, ExpiredAt: at + 86400}
+	err = h.saveUserState(st, true, daily, daily)
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
@@ -226,7 +220,7 @@ func (h *Handler) consumeStateToken(st *userState, token string, tokenType int, 
 	err := stateTokenValid(st, token, tokenType, at)
 	if err == ErrInvalidToken && st.Core.Token != nil && st.Core.Token.Token == token && st.Core.Token.ExpiredAt < at {
 		st.Core.Token = nil
-		if saveErr := h.saveUserState(st, true, false, false, nil); saveErr != nil {
+		if saveErr := h.saveUserState(st, true, false, false); saveErr != nil {
 			return saveErr
 		}
 		return err
@@ -234,7 +228,7 @@ func (h *Handler) consumeStateToken(st *userState, token string, tokenType int, 
 	if err != nil {
 		return err
 	}
-	return h.saveUserState(st, true, false, false, nil)
+	return h.saveUserState(st, true, false, false)
 }
 
 func stateViewerError(c echo.Context, st *userState, viewerID string) error {
