@@ -1,0 +1,56 @@
+{
+  "schema_version": 3,
+  "identity_field": "session_id",
+  "ordering": "request_start_time; ties by response_end_time then input order",
+  "scenario_grouping": "exact set of normalized method-route nodes observed in one Cookie session",
+  "summary": {
+    "input_files": 1,
+    "input_lines": 13,
+    "malformed_lines": 0,
+    "invalid_time_lines": 0,
+    "api_requests": 13,
+    "classified_requests": 13,
+    "unmatched_api_requests": 0,
+    "requests_with_identity": 1,
+    "missing_identity_requests": 12,
+    "sessions": 1,
+    "transitions": 0,
+    "overlapping_transitions": 0,
+    "ambiguous_order_transitions": 0,
+    "window_start_unix_ms": 1790281241309,
+    "window_end_unix_ms": 1790281241311,
+    "scenario_groups": 1,
+    "scenarios_emitted": 1,
+    "scenario_sessions_omitted": 0
+  },
+  "edges": [],
+  "scenarios": [
+    {
+      "id": "scenario-ccc65b4d4a85",
+      "signature": [
+        "GET /user/:userID/home"
+      ],
+      "sessions": 1,
+      "requests": 1,
+      "transitions": 0,
+      "overlap_transitions": 0,
+      "ambiguous_order_transitions": 0,
+      "requests_per_session_avg": 1,
+      "duration_p50_ms": 2,
+      "duration_p95_ms": 2,
+      "nodes": [
+        {
+          "method": "GET",
+          "route": "/user/:userID/home",
+          "requests": 1,
+          "sessions": 1,
+          "first_sessions": 1,
+          "last_sessions": 1,
+          "first_position_avg": 0,
+          "first_offset_avg_ms": 0
+        }
+      ],
+      "edges": []
+    }
+  ]
+}
