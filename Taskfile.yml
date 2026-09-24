@@ -708,7 +708,7 @@ tasks:
         vars: { MEASURECTL_COLLECT_FLAGS: -no-collectors, PROFILES_ENABLED: 'false' }
 
   before-bench:
-    desc: RUNを採番し、ログローテートとcollector起動を行う
+    desc: 差分をcommitしてRUNを採番し、ログローテートとcollector起動を行う
     silent: true
     deps: [build-measurectl, build-proc-metrics, build-mysql-metrics, build-sql-pool-metrics]
     cmds:
@@ -716,7 +716,7 @@ tasks:
         bash <<'BASH'
         set -eu
         mkdir -p '{{.RAW_DIR}}'
-        {{.MEASURECTL_DIR}}/measurectl run begin -run-id '{{.RUN_ID}}' \
+        {{.MEASURECTL_DIR}}/measurectl run begin -commit-changes -run-id '{{.RUN_ID}}' \
           -profiles-enabled={{.PROFILES_ENABLED}} \
           -results '{{.RESULT_DIR}}' -raw-dir '{{.RAW_DIR}}' -run-state-file '{{.RUN_STATE_FILE}}' \
           -collector-flags '{{.MEASURECTL_FLAGS}} {{default "" .MEASURECTL_COLLECT_FLAGS}}' {{.MEASURECTL_REMOTE}}

@@ -110,6 +110,10 @@ SSH切断・復元失敗などで残った場合は、表示された退避先�
 
 ### 計測と集計
 
+`task before-bench`はRUN開始前にGitの未コミット差分（ステージ済み・未ステージ・未追跡）をまとめてcommitする。
+Git操作は失敗時に3回リトライし、commitできなければ計測を開始しない。
+`run.json`の`source.commit`と`source.branch`には、そのRUN開始時点のSHAとbranchを記録する。
+
 `run begin/finalize`がRUN lifecycleを担う。`tools/measurectl/collectors.yaml`では、次を確認する。
 
 - access logとslow logのremote path
