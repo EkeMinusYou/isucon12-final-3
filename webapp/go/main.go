@@ -1218,18 +1218,13 @@ func (h *Handler) listPresent(c echo.Context) error {
 	WHERE user_id = ? AND deleted_at IS NULL
 	ORDER BY created_at DESC, id
 	LIMIT ? OFFSET ?`
-	if err = h.DB.Select(&presentList, query, userID, PresentCountPerPage, offset); err != nil {
+	if err = h.DB.Select(&presentList, query, userID, PresentCountPerPage+1, offset); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 
-	var presentCount int
-	if err = h.DB.Get(&presentCount, "SELECT COUNT(*) FROM user_presents WHERE user_id = ? AND deleted_at IS NULL", userID); err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
-
-	isNext := false
-	if presentCount > (offset + PresentCountPerPage) {
-		isNext = true
+	isNext := len(presentList) > PresentCountPerPage
+	if isNext {
+		presentList = presentList[:PresentCountPerPage]
 	}
 
 	return successResponse(c, &ListPresentResponse{
@@ -1296,21 +1291,27 @@ func (h *Handler) receivePresent(c echo.Context) error {
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	// 配布処理
-	for i := range obtainPresent {
-		if obtainPresent[i].DeletedAt != nil {
+	presentIDs := make([]int64, 0, len(obtainPresent))
+	for _, present := range obtainPresent {
+		if present.DeletedAt != nil {
 			return errorResponse(c, http.StatusInternalServerError, fmt.Errorf("received present"))
 		}
+		presentIDs = append(presentIDs, present.ID)
+	}
 
+	query, params, err = sqlx.In("UPDATE user_presents SET deleted_at=?, updated_at=? WHERE id IN (?)", requestAt, requestAt, presentIDs)
+	if err != nil {
+		return errorResponse(c, http.StatusInternalServerError, err)
+	}
+	if _, err = tx.Exec(query, params...); err != nil {
+		return errorResponse(c, http.StatusInternalServerError, err)
+	}
+
+	// 配布処理
+	for i := range obtainPresent {
 		obtainPresent[i].UpdatedAt = requestAt
 		obtainPresent[i].DeletedAt = &requestAt
 		v := obtainPresent[i]
-		query = "UPDATE user_presents SET deleted_at=?, updated_at=? WHERE id=?"
-		_, err := tx.Exec(query, requestAt, requestAt, v.ID)
-		if err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
-		}
-
 		_, _, _, err = h.obtainItem(tx, v.UserID, v.ItemID, v.ItemType, int64(v.Amount), requestAt)
 		if err != nil {
 			if err == ErrUserNotFound || err == ErrItemNotFound {
