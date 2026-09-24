@@ -133,6 +133,9 @@ func (h *Handler) resetLocal(ctx context.Context) error {
 	if err := initialize(ctx); err != nil {
 		return err
 	}
+	if err := h.snapshotInitialUsers(ctx); err != nil {
+		return err
+	}
 	seeds, err := h.loadSeedPresents()
 	if err != nil {
 		return err
@@ -301,38 +304,7 @@ func (h *Handler) loadUserState(id int64) (*userState, error) {
 		}
 	case sql.ErrNoRows:
 		st.Revision = 0
-		st.Core.User = new(User)
-		if err := h.DB.Get(st.Core.User, "SELECT * FROM users WHERE id=?", id); err != nil {
-			if err != sql.ErrNoRows {
-				return nil, err
-			}
-			exists = false
-		}
-		if !exists {
-			st.Core.User = nil
-			break
-		}
-		if err := h.DB.Get(&st.Core.Banned, "SELECT EXISTS(SELECT 1 FROM user_bans WHERE user_id=?)", id); err != nil {
-			return nil, err
-		}
-		if err := h.DB.Select(&st.Core.Devices, "SELECT * FROM user_devices WHERE user_id=? ORDER BY id", id); err != nil {
-			return nil, err
-		}
-		if err := h.DB.Select(&st.Core.Decks, "SELECT * FROM user_decks WHERE user_id=? ORDER BY id", id); err != nil {
-			return nil, err
-		}
-		if err := h.DB.Select(&st.Core.LoginBonuses, "SELECT * FROM user_login_bonuses WHERE user_id=? ORDER BY id", id); err != nil {
-			return nil, err
-		}
-		if err := h.DB.Select(&st.Core.PresentHistory, "SELECT * FROM user_present_all_received_history WHERE user_id=? ORDER BY id", id); err != nil {
-			return nil, err
-		}
-		if err := h.DB.Select(&st.Inventory.Cards, "SELECT * FROM user_cards WHERE user_id=? ORDER BY id", id); err != nil {
-			return nil, err
-		}
-		if err := h.DB.Select(&st.Inventory.Items, "SELECT * FROM user_items WHERE user_id=? ORDER BY id", id); err != nil {
-			return nil, err
-		}
+		exists = false
 	default:
 		return nil, err
 	}
