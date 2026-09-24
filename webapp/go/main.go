@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -444,6 +445,35 @@ func (h *Handler) obtainLoginBonus(tx *sqlx.Tx, userID int64, requestAt int64) (
 	return sendLoginBonuses, nil
 }
 
+func insertUserPresents(tx *sqlx.Tx, presents []*UserPresent) error {
+	const maxRows = 1000
+	const prefix = "INSERT INTO user_presents(id, user_id, sent_at, item_type, item_id, amount, present_message, created_at, updated_at) VALUES "
+	const row = "(?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+	for start := 0; start < len(presents); start += maxRows {
+		end := start + maxRows
+		if end > len(presents) {
+			end = len(presents)
+		}
+		batch := presents[start:end]
+		var query strings.Builder
+		query.Grow(len(prefix) + len(batch)*(len(row)+1))
+		query.WriteString(prefix)
+		args := make([]interface{}, 0, len(batch)*9)
+		for i, present := range batch {
+			if i > 0 {
+				query.WriteByte(',')
+			}
+			query.WriteString(row)
+			args = append(args, present.ID, present.UserID, present.SentAt, present.ItemType, present.ItemID, present.Amount, present.PresentMessage, present.CreatedAt, present.UpdatedAt)
+		}
+		if _, err := tx.Exec(query.String(), args...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // obtainPresent プレゼント付与
 func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*UserPresent, error) {
 	normalPresents := make([]*PresentAllMaster, 0)
@@ -453,16 +483,25 @@ func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*
 	}
 
 	obtainPresents := make([]*UserPresent, 0)
+	if len(normalPresents) == 0 {
+		return obtainPresents, nil
+	}
+
+	receivedIDs := make([]int64, 0)
+	query = "SELECT present_all_id FROM user_present_all_received_history WHERE user_id=?"
+	if err := tx.Select(&receivedIDs, query, userID); err != nil {
+		return nil, err
+	}
+	receivedSet := make(map[int64]struct{}, len(receivedIDs))
+	for _, id := range receivedIDs {
+		receivedSet[id] = struct{}{}
+	}
+
+	histories := make([]*UserPresentAllReceivedHistory, 0, len(normalPresents))
 	for _, np := range normalPresents {
-		received := new(UserPresentAllReceivedHistory)
-		query = "SELECT * FROM user_present_all_received_history WHERE user_id=? AND present_all_id=?"
-		err := tx.Get(received, query, userID, np.ID)
-		if err == nil {
+		if _, received := receivedSet[np.ID]; received {
 			// プレゼント配布済
 			continue
-		}
-		if err != sql.ErrNoRows {
-			return nil, err
 		}
 
 		pID, err := h.generateID()
@@ -480,11 +519,6 @@ func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*
 			CreatedAt:      requestAt,
 			UpdatedAt:      requestAt,
 		}
-		query = "INSERT INTO user_presents(id, user_id, sent_at, item_type, item_id, amount, present_message, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-		if _, err := tx.Exec(query, up.ID, up.UserID, up.SentAt, up.ItemType, up.ItemID, up.Amount, up.PresentMessage, up.CreatedAt, up.UpdatedAt); err != nil {
-			return nil, err
-		}
-
 		phID, err := h.generateID()
 		if err != nil {
 			return nil, err
@@ -497,7 +531,15 @@ func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*
 			CreatedAt:    requestAt,
 			UpdatedAt:    requestAt,
 		}
-		query = "INSERT INTO user_present_all_received_history(id, user_id, present_all_id, received_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+		obtainPresents = append(obtainPresents, up)
+		histories = append(histories, history)
+	}
+
+	if err := insertUserPresents(tx, obtainPresents); err != nil {
+		return nil, err
+	}
+	query = "INSERT INTO user_present_all_received_history(id, user_id, present_all_id, received_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+	for _, history := range histories {
 		if _, err := tx.Exec(
 			query,
 			history.ID,
@@ -509,8 +551,6 @@ func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*
 		); err != nil {
 			return nil, err
 		}
-
-		obtainPresents = append(obtainPresents, up)
 	}
 
 	return obtainPresents, nil
@@ -861,23 +901,45 @@ func (h *Handler) login(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 
+	for attempt := 0; ; attempt++ {
+		response, status, err := h.loginOnce(req, requestAt, user)
+		if err == nil {
+			return successResponse(c, response)
+		}
+
+		var mysqlErr *mysql.MySQLError
+		if status != http.StatusInternalServerError || !errors.As(err, &mysqlErr) || mysqlErr.Number != 1213 || attempt >= 2 {
+			return errorResponse(c, status, err)
+		}
+
+		user = new(User)
+		if err := h.DB.Get(user, "SELECT * FROM users WHERE id=?", req.UserID); err != nil {
+			if err == sql.ErrNoRows {
+				return errorResponse(c, http.StatusNotFound, ErrUserNotFound)
+			}
+			return errorResponse(c, http.StatusInternalServerError, err)
+		}
+	}
+}
+
+func (h *Handler) loginOnce(req *LoginRequest, requestAt int64, user *User) (*LoginResponse, int, error) {
 	tx, err := h.DB.Beginx()
 	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
+		return nil, http.StatusInternalServerError, err
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	query = "UPDATE user_sessions SET deleted_at=? WHERE user_id=? AND deleted_at IS NULL"
+	query := "UPDATE user_sessions SET deleted_at=? WHERE user_id=? AND deleted_at IS NULL"
 	if _, err = tx.Exec(query, requestAt, req.UserID); err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
+		return nil, http.StatusInternalServerError, err
 	}
 	sID, err := h.generateID()
 	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
+		return nil, http.StatusInternalServerError, err
 	}
 	sessID, err := generateUUID()
 	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
+		return nil, http.StatusInternalServerError, err
 	}
 	sess := &Session{
 		ID:        sID,
@@ -889,7 +951,7 @@ func (h *Handler) login(c echo.Context) error {
 	}
 	query = "INSERT INTO user_sessions(id, user_id, session_id, created_at, updated_at, expired_at) VALUES (?, ?, ?, ?, ?, ?)"
 	if _, err = tx.Exec(query, sess.ID, sess.UserID, sess.SessionID, sess.CreatedAt, sess.UpdatedAt, sess.ExpiredAt); err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
+		return nil, http.StatusInternalServerError, err
 	}
 
 	// 同日にすでにログインしているユーザはログイン処理をしない
@@ -899,42 +961,42 @@ func (h *Handler) login(c echo.Context) error {
 
 		query = "UPDATE users SET updated_at=?, last_activated_at=? WHERE id=?"
 		if _, err := tx.Exec(query, requestAt, requestAt, req.UserID); err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
+			return nil, http.StatusInternalServerError, err
 		}
 
 		err = tx.Commit()
 		if err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
+			return nil, http.StatusInternalServerError, err
 		}
 
-		return successResponse(c, &LoginResponse{
+		return &LoginResponse{
 			ViewerID:         req.ViewerID,
 			SessionID:        sess.SessionID,
 			UpdatedResources: makeUpdatedResources(requestAt, user, nil, nil, nil, nil, nil, nil),
-		})
+		}, 0, nil
 	}
 
 	user, loginBonuses, presents, err := h.loginProcess(tx, req.UserID, requestAt)
 	if err != nil {
 		if err == ErrUserNotFound || err == ErrItemNotFound || err == ErrLoginBonusRewardNotFound {
-			return errorResponse(c, http.StatusNotFound, err)
+			return nil, http.StatusNotFound, err
 		}
 		if err == ErrInvalidItemType {
-			return errorResponse(c, http.StatusBadRequest, err)
+			return nil, http.StatusBadRequest, err
 		}
-		return errorResponse(c, http.StatusInternalServerError, err)
+		return nil, http.StatusInternalServerError, err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
+		return nil, http.StatusInternalServerError, err
 	}
 
-	return successResponse(c, &LoginResponse{
+	return &LoginResponse{
 		ViewerID:         req.ViewerID,
 		SessionID:        sess.SessionID,
 		UpdatedResources: makeUpdatedResources(requestAt, user, nil, nil, nil, nil, loginBonuses, presents),
-	})
+	}, 0, nil
 }
 
 type LoginRequest struct {
@@ -1162,12 +1224,10 @@ func (h *Handler) drawGacha(c echo.Context) error {
 			CreatedAt:      requestAt,
 			UpdatedAt:      requestAt,
 		}
-		query = "INSERT INTO user_presents(id, user_id, sent_at, item_type, item_id, amount, present_message, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-		if _, err := tx.Exec(query, present.ID, present.UserID, present.SentAt, present.ItemType, present.ItemID, present.Amount, present.PresentMessage, present.CreatedAt, present.UpdatedAt); err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
-		}
-
 		presents = append(presents, present)
+	}
+	if err := insertUserPresents(tx, presents); err != nil {
+		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 
 	query = "UPDATE users SET isu_coin=? WHERE id=?"
