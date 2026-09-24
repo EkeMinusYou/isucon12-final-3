@@ -47,6 +47,7 @@ type userState struct {
 	Inventory           stateInventory
 	Inbox               stateInbox
 	base                *userState
+	changes             stateChanges
 	eventsSinceSnapshot int
 	eventBytes          int
 }
@@ -100,9 +101,7 @@ func (s *stateStore) get(id int64) (*userState, bool) {
 	}
 	committed := e.Value.(*stateCacheEntry).state
 	s.mu.Unlock()
-	copy := cloneUserState(committed)
-	copy.base = committed
-	return copy, true
+	return newWorkingState(committed), true
 }
 
 // peek is only safe while holding the user's striped lock and without mutating the result.
@@ -179,49 +178,6 @@ func (s *stateStore) remove(id int64) {
 		s.lru.Remove(e)
 	}
 	s.mu.Unlock()
-}
-
-func cloneRows[T any](rows []*T) []*T {
-	if rows == nil {
-		return nil
-	}
-	out := make([]*T, len(rows))
-	for i, row := range rows {
-		value := *row
-		out[i] = &value
-	}
-	return out
-}
-
-func cloneUserState(st *userState) *userState {
-	copy := *st
-	copy.base = nil
-	if st.Core.User != nil {
-		user := *st.Core.User
-		copy.Core.User = &user
-	}
-	if st.Core.Token != nil {
-		token := *st.Core.Token
-		copy.Core.Token = &token
-	}
-	if st.Core.Session != nil {
-		session := *st.Core.Session
-		copy.Core.Session = &session
-	}
-	copy.Core.Devices = cloneRows(st.Core.Devices)
-	copy.Core.Decks = cloneRows(st.Core.Decks)
-	copy.Core.LoginBonuses = cloneRows(st.Core.LoginBonuses)
-	copy.Core.PresentHistory = cloneRows(st.Core.PresentHistory)
-	copy.Inventory.Cards = cloneRows(st.Inventory.Cards)
-	copy.Inventory.Items = cloneRows(st.Inventory.Items)
-	copy.Inbox.Dynamic = cloneRows(st.Inbox.Dynamic)
-	if st.Inbox.Received != nil {
-		copy.Inbox.Received = make(map[int64]int64, len(st.Inbox.Received))
-		for id, at := range st.Inbox.Received {
-			copy.Inbox.Received[id] = at
-		}
-	}
-	return &copy
 }
 
 func estimateStateBytes(st *userState) int {
@@ -420,12 +376,10 @@ func (h *Handler) loadUserState(id int64) (*userState, error) {
 	}
 	sortDynamicPresents(st.Inbox.Dynamic)
 	h.State.putOwned(st)
-	copy := cloneUserState(st)
-	copy.base = st
-	return copy, nil
+	return newWorkingState(st), nil
 }
 
-func (h *Handler) saveUserState(st *userState, core, inventory, inbox bool) (err error) {
+func (h *Handler) saveUserState(st *userState) (err error) {
 	defer func() {
 		if err != nil {
 			h.State.remove(st.ID)
@@ -434,25 +388,19 @@ func (h *Handler) saveUserState(st *userState, core, inventory, inbox bool) (err
 	if st.base != nil && st.base.Revision != st.Revision {
 		return fmt.Errorf("state revision conflict: user=%d", st.ID)
 	}
-	sortDynamicPresents(st.Inbox.Dynamic)
-	req, err := newEventAppend(st, core, inventory, inbox)
+	if st.changes.dynamicOwned {
+		sortDynamicPresents(st.Inbox.Dynamic)
+	}
+	req, err := newEventAppend(st)
 	if err != nil {
 		return err
 	}
 	if err := h.Writer.append(req); err != nil {
 		return err
 	}
-	st.Revision++
-	committed := cloneUserState(st)
-	if st.base != nil {
-		committed.eventsSinceSnapshot = st.base.eventsSinceSnapshot + 1
-		committed.eventBytes = st.base.eventBytes + len(req.payload)
-	} else {
-		committed.eventsSinceSnapshot, committed.eventBytes = 1, len(req.payload)
-	}
+	committed := st.promoteCommitted(len(req.payload))
 	h.State.putOwned(committed)
 	h.State.replaceSession(req.oldSession, req.newSession, st.ID)
-	st.base = committed
 	if committed.eventsSinceSnapshot >= stateSnapshotEvents || committed.eventBytes >= stateSnapshotBytes {
 		if compactErr := h.compactUserState(committed); compactErr != nil {
 			log.Printf("state snapshot user=%d: %v", st.ID, compactErr)

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -46,20 +45,6 @@ type stateDelta struct {
 	Received       map[int64]int64                  `json:"received,omitempty"`
 }
 
-func diffRows[T any](old, next []*T, id func(*T) int64) []*T {
-	previous := make(map[int64]*T, len(old))
-	for _, row := range old {
-		previous[id(row)] = row
-	}
-	var changes []*T
-	for _, row := range next {
-		if !reflect.DeepEqual(previous[id(row)], row) {
-			changes = append(changes, row)
-		}
-	}
-	return changes
-}
-
 func upsertRows[T any](dst []*T, changes []*T, id func(*T) int64) []*T {
 	if len(changes) == 0 {
 		return dst
@@ -79,47 +64,12 @@ func upsertRows[T any](dst []*T, changes []*T, id func(*T) int64) []*T {
 	return dst
 }
 
-func buildStateDelta(st *userState, core, inventory, inbox bool) stateDelta {
-	d := stateDelta{Version: stateEventVersion}
-	old := st.base
-	if old == nil {
-		d.Create = &statePayload{Core: st.Core, Inventory: st.Inventory, Inbox: st.Inbox}
-		return d
+func buildStateDelta(st *userState) stateDelta {
+	if st.base == nil {
+		return stateDelta{Version: stateEventVersion, Create: &statePayload{Core: st.Core, Inventory: st.Inventory, Inbox: st.Inbox}}
 	}
-	if core {
-		if !reflect.DeepEqual(old.Core.User, st.Core.User) {
-			d.User = st.Core.User
-		}
-		if old.Core.Banned != st.Core.Banned {
-			value := st.Core.Banned
-			d.Banned = &value
-		}
-		d.Devices = diffRows(old.Core.Devices, st.Core.Devices, func(v *UserDevice) int64 { return v.ID })
-		d.Decks = diffRows(old.Core.Decks, st.Core.Decks, func(v *UserDeck) int64 { return v.ID })
-		d.Bonuses = diffRows(old.Core.LoginBonuses, st.Core.LoginBonuses, func(v *UserLoginBonus) int64 { return v.ID })
-		d.History = diffRows(old.Core.PresentHistory, st.Core.PresentHistory, func(v *UserPresentAllReceivedHistory) int64 { return v.ID })
-		if !reflect.DeepEqual(old.Core.Token, st.Core.Token) {
-			d.TokenChanged, d.Token = true, st.Core.Token
-		}
-		if !reflect.DeepEqual(old.Core.Session, st.Core.Session) {
-			d.SessionChanged, d.Session = true, st.Core.Session
-		}
-	}
-	if inventory {
-		d.Cards = diffRows(old.Inventory.Cards, st.Inventory.Cards, func(v *UserCard) int64 { return v.ID })
-		d.Items = diffRows(old.Inventory.Items, st.Inventory.Items, func(v *UserItem) int64 { return v.ID })
-	}
-	if inbox {
-		d.Dynamic = diffRows(old.Inbox.Dynamic, st.Inbox.Dynamic, func(v *UserPresent) int64 { return v.ID })
-		for id, at := range st.Inbox.Received {
-			if oldAt, ok := old.Inbox.Received[id]; !ok || oldAt != at {
-				if d.Received == nil {
-					d.Received = make(map[int64]int64)
-				}
-				d.Received[id] = at
-			}
-		}
-	}
+	d := st.changes.delta
+	d.Version = stateEventVersion
 	return d
 }
 
@@ -305,8 +255,8 @@ func (w *eventWriter) confirm(batch []*eventAppend) (bool, error) {
 	return true, nil
 }
 
-func newEventAppend(st *userState, core, inventory, inbox bool) (*eventAppend, error) {
-	d := buildStateDelta(st, core, inventory, inbox)
+func newEventAppend(st *userState) (*eventAppend, error) {
+	d := buildStateDelta(st)
 	payload, err := json.Marshal(d)
 	if err != nil {
 		return nil, err

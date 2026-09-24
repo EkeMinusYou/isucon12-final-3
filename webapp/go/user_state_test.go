@@ -11,8 +11,8 @@ func TestStateCacheKeepsCommittedSnapshot(t *testing.T) {
 	if !ok {
 		t.Fatal("committed state missing from cache")
 	}
-	got.Core.User.IsuCoin = 200
-	got.Inbox.Received[5] = 20
+	got.editUser().IsuCoin = 200
+	got.setReceived(5, 20)
 	got, ok = cache.get(17)
 	if !ok {
 		t.Fatal("committed state missing from cache")
@@ -20,7 +20,7 @@ func TestStateCacheKeepsCommittedSnapshot(t *testing.T) {
 	if got.Revision != 3 || got.Core.User.IsuCoin != 100 || got.Inbox.Received[5] != 10 || !got.Core.Banned {
 		t.Fatalf("cache exposed uncommitted mutation: %+v", got)
 	}
-	got.Core.User.IsuCoin = 300
+	got.editUser().IsuCoin = 300
 	again, ok := cache.get(17)
 	if !ok || again.Core.User.IsuCoin != 100 {
 		t.Fatalf("cache exposed reader mutation: %+v", again)

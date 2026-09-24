@@ -70,8 +70,8 @@ func (h *Handler) stateCreateUser(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	st.Core.Session = &Session{ID: sessionID, UserID: userID, SessionID: sessionToken, CreatedAt: at, UpdatedAt: at, ExpiredAt: at + 86400}
-	if err := h.saveUserState(st, true, true, true); err != nil {
+	st.setSession(&Session{ID: sessionID, UserID: userID, SessionID: sessionToken, CreatedAt: at, UpdatedAt: at, ExpiredAt: at + 86400})
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &CreateUserResponse{UserID: userID, ViewerID: req.ViewerID, SessionID: sessionToken,

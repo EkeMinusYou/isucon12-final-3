@@ -43,7 +43,7 @@ func (h *Handler) stateListGacha(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	if err := h.saveUserState(st, true, false, false); err != nil {
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &ListGachaResponse{OneTimeToken: token, Gachas: data})
@@ -132,9 +132,11 @@ func (h *Handler) stateDrawGacha(c echo.Context) error {
 			ItemID: selected.ItemID, Amount: selected.Amount, PresentMessage: fmt.Sprintf("%sの付与アイテムです", master.Name),
 			CreatedAt: at, UpdatedAt: at})
 	}
-	st.Core.User.IsuCoin -= coins
-	st.Inbox.Dynamic = append(st.Inbox.Dynamic, presents...)
-	if err := h.saveUserState(st, true, false, true); err != nil {
+	st.editUser().IsuCoin -= coins
+	for _, present := range presents {
+		st.addDynamic(present)
+	}
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &DrawGachaResponse{Presents: presents})
@@ -159,7 +161,7 @@ func (h *Handler) stateListItem(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	if err := h.saveUserState(st, true, false, false); err != nil {
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	items := st.Inventory.Items
@@ -230,9 +232,9 @@ func (h *Handler) stateReward(c echo.Context) error {
 	for _, card := range cards {
 		total += card.AmountPerSec
 	}
-	st.Core.User.IsuCoin += int64(int(at-st.Core.User.LastGetRewardAt) * total)
+	st.editUser().IsuCoin += int64(int(at-st.Core.User.LastGetRewardAt) * total)
 	st.Core.User.LastGetRewardAt = at
-	if err := h.saveUserState(st, true, false, false); err != nil {
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &RewardResponse{UpdatedResources: makeUpdatedResources(at, st.Core.User, nil, nil, nil, nil, nil, nil)})
@@ -272,6 +274,7 @@ func (h *Handler) stateUpdateDeck(c echo.Context) error {
 		seen[cid] = true
 	}
 	if old := st.activeDeck(); old != nil {
+		old = st.editDeck(old.ID)
 		old.UpdatedAt = at
 		old.DeletedAt = &at
 	}
@@ -281,8 +284,8 @@ func (h *Handler) stateUpdateDeck(c echo.Context) error {
 	}
 	deck := &UserDeck{ID: newID, UserID: id, CardID1: req.CardIDs[0], CardID2: req.CardIDs[1],
 		CardID3: req.CardIDs[2], CreatedAt: at, UpdatedAt: at}
-	st.Core.Decks = append(st.Core.Decks, deck)
-	if err := h.saveUserState(st, true, false, false); err != nil {
+	st.addDeck(deck)
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &UpdateDeckResponse{UpdatedResources: makeUpdatedResources(at, nil, nil, nil, []*UserDeck{deck}, nil, nil, nil)})
@@ -333,6 +336,7 @@ func (h *Handler) stateAddExpToCard(c echo.Context) error {
 	if card.Level == *master.MaxLevel {
 		return errorResponse(c, http.StatusBadRequest, fmt.Errorf("target card is max level"))
 	}
+	card = st.editCard(cardID)
 	type consumption struct {
 		item    *UserItem
 		amount  int
@@ -365,12 +369,13 @@ func (h *Handler) stateAddExpToCard(c echo.Context) error {
 	card.UpdatedAt = at
 	consumed := make([]*UserItem, 0, len(consumptions))
 	for _, v := range consumptions {
-		v.item.Amount = v.initial - v.amount
-		v.item.UpdatedAt = at
-		result := *v.item
+		item := st.editItem(v.item.ID)
+		item.Amount = v.initial - v.amount
+		item.UpdatedAt = at
+		result := *item
 		consumed = append(consumed, &result)
 	}
-	if err := h.saveUserState(st, false, true, false); err != nil {
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &AddExpToCardResponse{UpdatedResources: makeUpdatedResources(at, nil, nil, []*UserCard{card}, nil, consumed, nil, nil)})

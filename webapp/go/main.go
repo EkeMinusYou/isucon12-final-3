@@ -306,8 +306,8 @@ func (h *Handler) checkSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 			if err != nil {
 				return errorResponse(c, http.StatusInternalServerError, err)
 			}
-			working.Core.Session = nil
-			if err := h.saveUserState(working, true, false, false); err != nil {
+			working.setSession(nil)
+			if err := h.saveUserState(working); err != nil {
 				return errorResponse(c, http.StatusInternalServerError, err)
 			}
 			return errorResponse(c, http.StatusUnauthorized, ErrExpiredSession)

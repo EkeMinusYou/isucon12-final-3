@@ -10,7 +10,7 @@ import (
 
 func (h *Handler) stateGrantItem(st *userState, masters *masterSnapshot, itemID int64, itemType int, amount int64, at int64) error {
 	if itemType == 1 {
-		st.Core.User.IsuCoin += amount
+		st.editUser().IsuCoin += amount
 		return nil
 	}
 	switch itemType {
@@ -23,7 +23,7 @@ func (h *Handler) stateGrantItem(st *userState, masters *masterSnapshot, itemID 
 		if err != nil {
 			return err
 		}
-		st.Inventory.Cards = append(st.Inventory.Cards, &UserCard{
+		st.addCard(&UserCard{
 			ID: id, UserID: st.ID, CardID: item.ID, AmountPerSec: *item.AmountPerSec,
 			Level: 1, TotalExp: 0, CreatedAt: at, UpdatedAt: at,
 		})
@@ -34,6 +34,7 @@ func (h *Handler) stateGrantItem(st *userState, masters *masterSnapshot, itemID 
 		}
 		for _, v := range st.Inventory.Items {
 			if v.ItemID == item.ID {
+				v = st.editItem(v.ID)
 				v.Amount += int(amount)
 				v.UpdatedAt = at
 				return nil
@@ -43,7 +44,7 @@ func (h *Handler) stateGrantItem(st *userState, masters *masterSnapshot, itemID 
 		if err != nil {
 			return err
 		}
-		st.Inventory.Items = append(st.Inventory.Items, &UserItem{
+		st.addItem(&UserItem{
 			ID: id, UserID: st.ID, ItemType: item.ItemType, ItemID: item.ID,
 			Amount: int(amount), CreatedAt: at, UpdatedAt: at,
 		})
@@ -70,11 +71,13 @@ func (h *Handler) stateLoginRewards(st *userState, masters *masterSnapshot, at i
 				return nil, nil, err
 			}
 			progress = &UserLoginBonus{ID: id, UserID: st.ID, LoginBonusID: bonus.ID, LoopCount: 1, CreatedAt: at, UpdatedAt: at}
-			st.Core.LoginBonuses = append(st.Core.LoginBonuses, progress)
+			st.addBonus(progress)
 		}
 		if progress.LastRewardSequence < bonus.ColumnCount {
+			progress = st.editBonus(progress.ID)
 			progress.LastRewardSequence++
 		} else if bonus.Looped {
+			progress = st.editBonus(progress.ID)
 			progress.LoopCount++
 			progress.LastRewardSequence = 1
 		} else {
@@ -116,11 +119,11 @@ func (h *Handler) stateLoginRewards(st *userState, masters *masterSnapshot, at i
 		}
 		history := &UserPresentAllReceivedHistory{ID: historyID, UserID: st.ID,
 			PresentAllID: master.ID, ReceivedAt: at, CreatedAt: at, UpdatedAt: at}
-		st.Core.PresentHistory = append(st.Core.PresentHistory, history)
-		st.Inbox.Dynamic = append(st.Inbox.Dynamic, p)
+		st.addPresentHistory(history)
+		st.addDynamic(p)
 		presents = append(presents, p)
 	}
-	st.Core.User.LastActivatedAt = at
+	st.editUser().LastActivatedAt = at
 	st.Core.User.UpdatedAt = at
 	return sentBonuses, presents, nil
 }
@@ -173,11 +176,11 @@ func (h *Handler) stateLogin(c echo.Context) error {
 			return errorResponse(c, http.StatusInternalServerError, err)
 		}
 	} else {
-		st.Core.User.LastActivatedAt = at
+		st.editUser().LastActivatedAt = at
 		st.Core.User.UpdatedAt = at
 	}
-	st.Core.Session = &Session{ID: id, UserID: req.UserID, SessionID: sessID, CreatedAt: at, UpdatedAt: at, ExpiredAt: at + 86400}
-	err = h.saveUserState(st, true, daily, daily)
+	st.setSession(&Session{ID: id, UserID: req.UserID, SessionID: sessID, CreatedAt: at, UpdatedAt: at, ExpiredAt: at + 86400})
+	err = h.saveUserState(st)
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
@@ -190,7 +193,7 @@ func stateTokenValid(st *userState, token string, tokenType int, at int64) error
 	if t == nil || t.Token != token || t.TokenType != tokenType || t.ExpiredAt < at {
 		return ErrInvalidToken
 	}
-	st.Core.Token = nil
+	st.setToken(nil)
 	return nil
 }
 
@@ -203,16 +206,16 @@ func (h *Handler) issueStateToken(st *userState, tokenType int, at int64) (strin
 	if err != nil {
 		return "", err
 	}
-	st.Core.Token = &UserOneTimeToken{ID: id, UserID: st.ID, Token: value, TokenType: tokenType,
-		CreatedAt: at, UpdatedAt: at, ExpiredAt: at + 600}
+	st.setToken(&UserOneTimeToken{ID: id, UserID: st.ID, Token: value, TokenType: tokenType,
+		CreatedAt: at, UpdatedAt: at, ExpiredAt: at + 600})
 	return value, nil
 }
 
 func (h *Handler) consumeStateToken(st *userState, token string, tokenType int, at int64) error {
 	err := stateTokenValid(st, token, tokenType, at)
 	if err == ErrInvalidToken && st.Core.Token != nil && st.Core.Token.Token == token && st.Core.Token.ExpiredAt < at {
-		st.Core.Token = nil
-		if saveErr := h.saveUserState(st, true, false, false); saveErr != nil {
+		st.setToken(nil)
+		if saveErr := h.saveUserState(st); saveErr != nil {
 			return saveErr
 		}
 		return err
@@ -220,7 +223,7 @@ func (h *Handler) consumeStateToken(st *userState, token string, tokenType int, 
 	if err != nil {
 		return err
 	}
-	return h.saveUserState(st, true, false, false)
+	return h.saveUserState(st)
 }
 
 func stateViewerError(c echo.Context, st *userState, viewerID string) error {

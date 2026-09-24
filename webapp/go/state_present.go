@@ -142,9 +142,12 @@ func (h *Handler) stateReceivePresent(c echo.Context) error {
 		return successResponse(c, &ReceivePresentResponse{UpdatedResources: makeUpdatedResources(at, nil, nil, nil, nil, nil, nil, []*UserPresent{})})
 	}
 	sort.Slice(toReceive, func(i, j int) bool { return toReceive[i].ID < toReceive[j].ID })
-	for _, p := range toReceive {
+	for i, p := range toReceive {
 		if p.ID <= seedPresentMaxID {
-			st.Inbox.Received[p.ID] = at
+			st.setReceived(p.ID, at)
+		} else {
+			p = st.editDynamic(p.ID)
+			toReceive[i] = p
 		}
 		p.UpdatedAt = at
 		p.DeletedAt = &at
@@ -152,7 +155,7 @@ func (h *Handler) stateReceivePresent(c echo.Context) error {
 			return stateGrantError(c, err)
 		}
 	}
-	if err := h.saveUserState(st, true, true, true); err != nil {
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &ReceivePresentResponse{UpdatedResources: makeUpdatedResources(at, nil, nil, nil, nil, nil, nil, toReceive)})
@@ -233,8 +236,8 @@ func (h *Handler) stateAdminBanUser(c echo.Context) error {
 		}
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	st.Core.Banned = true
-	if err := h.saveUserState(st, true, false, false); err != nil {
+	st.setBanned(true)
+	if err := h.saveUserState(st); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &AdminBanUserResponse{User: st.Core.User})
