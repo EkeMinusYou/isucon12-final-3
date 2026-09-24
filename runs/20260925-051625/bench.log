@@ -1,0 +1,16 @@
+2026-09-24T20:16:29.507090767Z	BENCHMARK_START
+[ADMIN] 20:16:29.558974 benchmarker --target-host=172.31.45.101 --request-timeout=10s --initialize-request-timeout=1m0s --exit-error-on-fail=true --stage=prod --max-parallelism=100 --prepare-only=false
+20:16:57.001150 [ValidationScenario] 整合性チェックを開始します
+[ADMIN] 20:16:57.001138 [LANGUAGE] go
+20:16:57.385410 整合性チェック Request:POST /login (日跨ぎ前）
+20:16:57.500940 [ValidationScenario] 整合性チェックを終了します
+20:16:57.500948 整合性チェックに失敗しました
+20:17:00.503139 [VALIDATION_ERR] prepare: validation-error-invalid-status-code: POST /login の Response の　HTTP Status Code が違います : expected(200) != actual(500)
+20:17:00.503153 続行不可能なエラーが検出されたので、ここで処理を終了します。
+20:17:00.503177 [PASSED]: false
+20:17:00.503179 [SCORE] 0 (addition: 0, deduction: 0)
+[ADMIN] 20:17:00.503205 [SCORE] map[GET /user/:userId/gacha/index:0 GET /user/:userId/home:0 GET /user/:userId/item:0 GET /user/:userId/present/index/:n:0 POST /login:0 POST /login(ban):0 POST /user:0 POST /user/:userId/card:0 POST /user/:userId/card/addexp/:cardId:0 POST /user/:userId/gacha/draw/:gachaId:0 POST /user/:userId/present/receive:0 POST /user/:userId/reward:0]
+
+SCORE: 0
+BENCHMARK_FAIL
+2026-09-24T20:17:00.606863055Z	BENCHMARK_END
