@@ -31,7 +31,6 @@ docs/solutions
 docs/special-sources
 tools
 tools/contest/README.md
-.config
 
 [contest]
 Taskfile.contest.yml
