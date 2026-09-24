@@ -48,13 +48,14 @@ const (
 )
 
 type Handler struct {
-	DB        *sqlx.DB
-	ControlDB *sqlx.DB
-	Cluster   *clusterTopology
-	IDs       *idAllocator
-	State     *stateStore
-	Masters   *masterStore
-	Writer    *eventWriter
+	DB         *sqlx.DB
+	ControlDB  *sqlx.DB
+	SessionDBs []*sqlx.DB
+	Cluster    *clusterTopology
+	IDs        *idAllocator
+	State      *stateStore
+	Masters    *masterStore
+	Writer     *eventWriter
 }
 
 func main() {
@@ -87,6 +88,22 @@ func main() {
 		}
 		defer controlDB.Close()
 	}
+	sessionDBs := make([]*sqlx.DB, len(cluster.Hosts))
+	for i, host := range cluster.Hosts {
+		switch i {
+		case cluster.Self:
+			sessionDBs[i] = dbx
+		case 0:
+			sessionDBs[i] = controlDB
+		default:
+			peerDB, err := connectDBHost(false, host.IP)
+			if err != nil {
+				e.Logger.Fatalf("failed to connect to %s db: %v", host.Name, err)
+			}
+			defer peerDB.Close()
+			sessionDBs[i] = peerDB
+		}
+	}
 	ids, err := newIDAllocator(cluster.Self)
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize ID allocator: %v", err)
@@ -97,13 +114,14 @@ func main() {
 
 	e.Server.Addr = fmt.Sprintf(":%v", "8080")
 	h := &Handler{
-		DB:        dbx,
-		ControlDB: controlDB,
-		Cluster:   cluster,
-		IDs:       ids,
-		State:     newStateStore(),
-		Masters:   &masterStore{},
-		Writer:    newEventWriter(dbx),
+		DB:         dbx,
+		ControlDB:  controlDB,
+		SessionDBs: sessionDBs,
+		Cluster:    cluster,
+		IDs:        ids,
+		State:      newStateStore(),
+		Masters:    &masterStore{},
+		Writer:     newEventWriter(dbx),
 	}
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{}))
@@ -254,27 +272,14 @@ func (h *Handler) checkSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 			return errorResponse(c, http.StatusInternalServerError, ErrGetRequestTime)
 		}
 
-		owner, ok := h.State.sessionOwner(sessID)
+		owner, ok, err := h.findSessionOwner(sessID)
+		if err != nil {
+			return errorResponse(c, http.StatusInternalServerError, err)
+		}
 		if !ok {
-			err := h.DB.Get(&owner, "SELECT user_id FROM user_session_current WHERE session_id=?", sessID)
-			if err == nil {
-				h.State.rememberSession(sessID, owner)
-			}
-			if err == sql.ErrNoRows {
-				return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
-			}
-			if err != nil {
-				return errorResponse(c, http.StatusInternalServerError, err)
-			}
+			return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
 		}
 		if owner != userID {
-			unlock := h.State.lock(owner)
-			other, err := h.loadUserStateRead(owner)
-			unlock()
-			if err != nil || other.Core.Session == nil || other.Core.Session.SessionID != sessID {
-				h.State.forgetSession(sessID)
-				return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
-			}
 			return errorResponse(c, http.StatusForbidden, ErrForbidden)
 		}
 		unlock := h.State.lock(userID)
@@ -310,6 +315,34 @@ func (h *Handler) checkSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 		}
 		return nil
 	}
+}
+
+func (h *Handler) findSessionOwner(sessID string) (int64, bool, error) {
+	if owner, ok := h.State.sessionOwner(sessID); ok {
+		return owner, true, nil
+	}
+	var owner int64
+	err := h.DB.Get(&owner, "SELECT user_id FROM user_session_current WHERE session_id=?", sessID)
+	if err == nil {
+		h.State.rememberSession(sessID, owner)
+		return owner, true, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, false, err
+	}
+	for i, db := range h.SessionDBs {
+		if i == h.Cluster.Self {
+			continue
+		}
+		err = db.Get(&owner, "SELECT user_id FROM user_session_current WHERE session_id=?", sessID)
+		if err == nil {
+			return owner, true, nil
+		}
+		if err != sql.ErrNoRows {
+			return 0, false, err
+		}
+	}
+	return 0, false, nil
 }
 
 func (h *Handler) lockUser(c echo.Context, id int64) func() {
