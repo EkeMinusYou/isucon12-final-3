@@ -215,6 +215,8 @@ type AdminListMasterResponse struct {
 // adminUpdateMaster マスタデータ更新
 // PUT /admin/master
 func (h *Handler) adminUpdateMaster(c echo.Context) error {
+	h.Masters.updateMu.Lock()
+	defer h.Masters.updateMu.Unlock()
 	tx, err := h.ControlDB.Beginx()
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
@@ -478,12 +480,18 @@ func (h *Handler) adminUpdateMaster(c echo.Context) error {
 	if _, err = tx.Exec("UPDATE master_revision SET revision=revision+1 WHERE id=1"); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
+	var revision int64
+	if err = tx.Get(&revision, "SELECT revision FROM master_revision WHERE id=1"); err != nil {
+		return errorResponse(c, http.StatusInternalServerError, err)
+	}
 
 	err = tx.Commit()
 	if err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	h.Masters.clear()
+	if err := h.refreshClusterMaster(revision); err != nil {
+		return errorResponse(c, http.StatusInternalServerError, err)
+	}
 
 	return successResponse(c, &AdminUpdateMasterResponse{
 		VersionMaster: activeMaster,

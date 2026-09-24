@@ -121,6 +121,63 @@ func (h *Handler) initializeLocalHTTP(ctx echo.Context) error {
 	return ctx.NoContent(http.StatusNoContent)
 }
 
+func (h *Handler) refreshMasterLocalHTTP(ctx echo.Context) error {
+	if h.Cluster.Self == 0 {
+		return ctx.NoContent(http.StatusForbidden)
+	}
+	peer, _, err := net.SplitHostPort(ctx.Request().RemoteAddr)
+	if err != nil || peer != h.Cluster.Hosts[0].IP {
+		return ctx.NoContent(http.StatusForbidden)
+	}
+	revision, err := strconv.ParseInt(ctx.Request().Header.Get("X-Isu-Master-Revision"), 10, 64)
+	if err != nil || revision < 1 {
+		return ctx.NoContent(http.StatusBadRequest)
+	}
+	if err := h.Masters.refresh(h.ControlDB, revision); err != nil {
+		return errorResponse(ctx, http.StatusInternalServerError, err)
+	}
+	return ctx.NoContent(http.StatusNoContent)
+}
+
+func (h *Handler) refreshClusterMaster(revision int64) error {
+	h.Masters.clear()
+	if err := h.Masters.refresh(h.ControlDB, revision); err != nil {
+		return err
+	}
+	refreshCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	results := make(chan error, len(h.Cluster.Hosts)-1)
+	for i := 1; i < len(h.Cluster.Hosts); i++ {
+		go func(host clusterHost) {
+			target := "http://" + net.JoinHostPort(host.IP, "8080") + "/_internal/master/refresh"
+			req, err := http.NewRequestWithContext(refreshCtx, http.MethodPost, target, nil)
+			if err != nil {
+				results <- err
+				return
+			}
+			req.Header.Set("X-Isu-Master-Revision", strconv.FormatInt(revision, 10))
+			resp, err := h.Cluster.client.Do(req)
+			if err != nil {
+				results <- fmt.Errorf("%s master refresh: %w", host.Name, err)
+				return
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusNoContent {
+				results <- fmt.Errorf("%s master refresh: status %d", host.Name, resp.StatusCode)
+				return
+			}
+			results <- nil
+		}(h.Cluster.Hosts[i])
+	}
+	var failed error
+	for i := 1; i < len(h.Cluster.Hosts); i++ {
+		if err := <-results; err != nil && failed == nil {
+			failed = err
+		}
+	}
+	return failed
+}
+
 func (h *Handler) initializeCluster(ctx echo.Context) error {
 	if h.Cluster.Self != 0 {
 		return ctx.NoContent(http.StatusForbidden)

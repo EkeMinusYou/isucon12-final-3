@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
@@ -20,6 +21,7 @@ type masterSnapshot struct {
 
 type masterStore struct {
 	mu       sync.RWMutex
+	updateMu sync.Mutex
 	value    *masterSnapshot
 	revision int64
 }
@@ -32,12 +34,8 @@ func (m *masterStore) clear() {
 }
 
 func (m *masterStore) get(db *sqlx.DB) (*masterSnapshot, error) {
-	var revision int64
-	if err := db.Get(&revision, "SELECT revision FROM master_revision WHERE id=1"); err != nil {
-		return nil, err
-	}
 	m.mu.RLock()
-	if m.value != nil && m.revision == revision {
+	if m.value != nil {
 		value := m.value
 		m.mu.RUnlock()
 		return value, nil
@@ -45,14 +43,37 @@ func (m *masterStore) get(db *sqlx.DB) (*masterSnapshot, error) {
 	m.mu.RUnlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.value != nil && m.revision == revision {
+	if m.value != nil {
 		return m.value, nil
 	}
+	return m.reloadLocked(db)
+}
+
+func (m *masterStore) refresh(db *sqlx.DB, expected int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.value != nil && m.revision >= expected {
+		return nil
+	}
+	m.value = nil
+	_, err := m.reloadLocked(db)
+	if err != nil {
+		return err
+	}
+	if m.revision < expected {
+		m.value = nil
+		return fmt.Errorf("master revision %d is older than %d", m.revision, expected)
+	}
+	return nil
+}
+
+func (m *masterStore) reloadLocked(db *sqlx.DB) (*masterSnapshot, error) {
 	tx, err := db.BeginTxx(context.Background(), &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	var revision int64
 	if err := tx.Get(&revision, "SELECT revision FROM master_revision WHERE id=1"); err != nil {
 		return nil, err
 	}

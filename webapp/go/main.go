@@ -130,6 +130,7 @@ func main() {
 	// utility
 	e.POST("/initialize", h.initializeState)
 	e.POST("/_internal/initialize", h.initializeLocalHTTP)
+	e.POST("/_internal/master/refresh", h.refreshMasterLocalHTTP)
 	e.GET("/health", h.health)
 
 	// feature
