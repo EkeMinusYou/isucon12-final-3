@@ -211,19 +211,21 @@ func (h *Handler) issueStateToken(st *userState, tokenType int, at int64) (strin
 	return value, nil
 }
 
-func (h *Handler) consumeStateToken(st *userState, token string, tokenType int, at int64) error {
+func (h *Handler) stageStateToken(st *userState, token string, tokenType int, at int64) (*userState, error) {
 	err := stateTokenValid(st, token, tokenType, at)
 	if err == ErrInvalidToken && st.Core.Token != nil && st.Core.Token.Token == token && st.Core.Token.ExpiredAt < at {
 		st.setToken(nil)
 		if saveErr := h.saveUserState(st); saveErr != nil {
-			return saveErr
+			return nil, saveErr
 		}
-		return err
+		return nil, err
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return h.saveUserState(st)
+	tokenOnly := newWorkingState(st.base)
+	tokenOnly.setToken(nil)
+	return tokenOnly, nil
 }
 
 func stateViewerError(c echo.Context, st *userState, viewerID string) error {

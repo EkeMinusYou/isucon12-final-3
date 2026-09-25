@@ -12,7 +12,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -48,14 +51,16 @@ const (
 )
 
 type Handler struct {
-	DB         *sqlx.DB
-	ControlDB  *sqlx.DB
-	SessionDBs []*sqlx.DB
-	Cluster    *clusterTopology
-	IDs        *idAllocator
-	State      *stateStore
-	Masters    *masterStore
-	Writer     *eventWriter
+	DB              *sqlx.DB
+	ControlDB       *sqlx.DB
+	Cluster         *clusterTopology
+	IDs             *idAllocator
+	State           *stateStore
+	Masters         *masterStore
+	Writer          *eventWriter
+	CheckpointMu    sync.Mutex
+	CheckpointReset chan struct{}
+	LastReset       time.Time
 }
 
 func main() {
@@ -88,22 +93,6 @@ func main() {
 		}
 		defer controlDB.Close()
 	}
-	sessionDBs := make([]*sqlx.DB, len(cluster.Hosts))
-	for i, host := range cluster.Hosts {
-		switch i {
-		case cluster.Self:
-			sessionDBs[i] = dbx
-		case 0:
-			sessionDBs[i] = controlDB
-		default:
-			peerDB, err := connectDBHost(false, host.IP)
-			if err != nil {
-				e.Logger.Fatalf("failed to connect to %s db: %v", host.Name, err)
-			}
-			defer peerDB.Close()
-			sessionDBs[i] = peerDB
-		}
-	}
 	ids, err := newIDAllocator(cluster.Self)
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize ID allocator: %v", err)
@@ -113,21 +102,50 @@ func main() {
 	}
 
 	e.Server.Addr = fmt.Sprintf(":%v", "8080")
-	h := &Handler{
-		DB:         dbx,
-		ControlDB:  controlDB,
-		SessionDBs: sessionDBs,
-		Cluster:    cluster,
-		IDs:        ids,
-		State:      newStateStore(),
-		Masters:    &masterStore{},
-		Writer:     newEventWriter(dbx),
-	}
-	seeds, err := h.loadSeedPresents()
+	stateDir, err := stateDirectory()
 	if err != nil {
-		e.Logger.Fatalf("failed to load seed presents: %v", err)
+		e.Logger.Fatalf("failed to locate state directory: %v", err)
 	}
-	h.State.setSeeds(seeds)
+	writer, states, seeds, err := newEventWriter(stateDir)
+	if err != nil {
+		e.Logger.Fatalf("failed to recover local state: %v", err)
+	}
+	h := &Handler{
+		DB:              dbx,
+		ControlDB:       controlDB,
+		Cluster:         cluster,
+		IDs:             ids,
+		State:           newStateStore(),
+		Masters:         &masterStore{},
+		Writer:          writer,
+		CheckpointReset: make(chan struct{}, 1),
+	}
+	h.State.replace(states, seeds)
+	checkpointCtx, stopCheckpoint := context.WithCancel(context.Background())
+	checkpointDone := make(chan struct{})
+	go func() {
+		defer close(checkpointDone)
+		timer := time.NewTimer(2 * time.Minute)
+		defer timer.Stop()
+		for {
+			select {
+			case <-checkpointCtx.Done():
+				return
+			case <-timer.C:
+				if err := h.checkpointLocal(); err != nil {
+					e.Logger.Errorf("state checkpoint: %v", err)
+				}
+			case <-h.CheckpointReset:
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+			}
+			timer.Reset(2 * time.Minute)
+		}
+	}()
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{}))
 	e.Use(cluster.routeMiddleware)
@@ -135,6 +153,7 @@ func main() {
 	// utility
 	e.POST("/initialize", h.initializeState)
 	e.POST("/_internal/initialize", h.initializeLocalHTTP)
+	e.POST("/_internal/session/owner", h.sessionOwnerLocalHTTP)
 	e.POST("/_internal/master/refresh", h.refreshMasterLocalHTTP)
 	e.GET("/health", h.health)
 
@@ -164,7 +183,34 @@ func main() {
 	adminAuthAPI.POST("/admin/user/:userID/ban", h.stateAdminBanUser)
 
 	e.Logger.Infof("Start server: address=%s", e.Server.Addr)
-	e.Logger.Error(e.StartServer(e.Server))
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(stop)
+	serverDone := make(chan error, 1)
+	go func() { serverDone <- e.StartServer(e.Server) }()
+	drained := true
+	select {
+	case <-stop:
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		if err := e.Shutdown(shutdownCtx); err != nil {
+			e.Logger.Errorf("server shutdown: %v", err)
+			drained = false
+		}
+		cancel()
+	case err := <-serverDone:
+		if err != nil && err != http.ErrServerClosed {
+			e.Logger.Errorf("server stopped: %v", err)
+		}
+	}
+	stopCheckpoint()
+	<-checkpointDone
+	if drained {
+		if err := writer.close(); err != nil {
+			e.Logger.Errorf("state log shutdown: %v", err)
+		}
+	} else if _, err := writer.syncPending(); err != nil {
+		e.Logger.Errorf("state log shutdown sync: %v", err)
+	}
 }
 
 // connectDB DBに接続する
@@ -278,27 +324,33 @@ func (h *Handler) checkSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 			return errorResponse(c, http.StatusInternalServerError, ErrGetRequestTime)
 		}
 
-		owner, ok, err := h.findSessionOwner(sessID)
-		if err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
-		}
-		if !ok {
-			return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
-		}
-		if owner != userID {
-			return errorResponse(c, http.StatusForbidden, ErrForbidden)
-		}
 		unlock := h.State.lock(userID)
 		defer unlock()
 		st, err := h.loadUserStateRead(userID)
 		if err != nil {
+			if err == ErrUserNotFound {
+				owner, ok, lookupErr := h.findSessionOwner(sessID)
+				if lookupErr != nil {
+					return errorResponse(c, http.StatusInternalServerError, lookupErr)
+				}
+				if ok && owner != userID {
+					return errorResponse(c, http.StatusForbidden, ErrForbidden)
+				}
+				return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
+			}
 			return stateNotFound(c, err)
 		}
 		if st.Core.Banned {
 			return errorResponse(c, http.StatusForbidden, ErrForbidden)
 		}
 		if st.Core.Session == nil || st.Core.Session.SessionID != sessID {
-			h.State.forgetSession(sessID)
+			owner, ok, err := h.findSessionOwner(sessID)
+			if err != nil {
+				return errorResponse(c, http.StatusInternalServerError, err)
+			}
+			if ok && owner != userID {
+				return errorResponse(c, http.StatusForbidden, ErrForbidden)
+			}
 			return errorResponse(c, http.StatusUnauthorized, ErrUnauthorized)
 		}
 		if st.Core.Session.ExpiredAt < requestAt {
@@ -327,28 +379,7 @@ func (h *Handler) findSessionOwner(sessID string) (int64, bool, error) {
 	if owner, ok := h.State.sessionOwner(sessID); ok {
 		return owner, true, nil
 	}
-	var owner int64
-	err := h.DB.Get(&owner, "SELECT user_id FROM user_session_current WHERE session_id=?", sessID)
-	if err == nil {
-		h.State.rememberSession(sessID, owner)
-		return owner, true, nil
-	}
-	if err != sql.ErrNoRows {
-		return 0, false, err
-	}
-	for i, db := range h.SessionDBs {
-		if i == h.Cluster.Self {
-			continue
-		}
-		err = db.Get(&owner, "SELECT user_id FROM user_session_current WHERE session_id=?", sessID)
-		if err == nil {
-			return owner, true, nil
-		}
-		if err != sql.ErrNoRows {
-			return 0, false, err
-		}
-	}
-	return 0, false, nil
+	return h.findRemoteSessionOwner(sessID)
 }
 
 func (h *Handler) lockUser(c echo.Context, id int64) func() {

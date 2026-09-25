@@ -80,35 +80,36 @@ func (h *Handler) stateDrawGacha(c echo.Context) error {
 	if err != nil {
 		return stateNotFound(c, err)
 	}
-	if err := h.consumeStateToken(st, req.OneTimeToken, 1, at); err != nil {
+	tokenOnly, err := h.stageStateToken(st, req.OneTimeToken, 1, at)
+	if err != nil {
 		if err == ErrInvalidToken {
 			return errorResponse(c, http.StatusBadRequest, err)
 		}
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	if err := stateViewerError(c, st, req.ViewerID); err != nil {
-		return err
+	if !st.validViewer(req.ViewerID) {
+		return h.consumedTokenError(c, tokenOnly, http.StatusNotFound, ErrUserDeviceNotFound)
 	}
 	coins := count * 1000
 	if st.Core.User.IsuCoin < coins {
-		return errorResponse(c, http.StatusConflict, fmt.Errorf("not enough isucon"))
+		return h.consumedTokenError(c, tokenOnly, http.StatusConflict, fmt.Errorf("not enough isucon"))
 	}
 	masterData := requestMaster(c)
 	gachaNumber, _ := strconv.ParseInt(gachaID, 10, 64)
 	master := masterData.gacha(gachaNumber, at)
 	if master == nil {
-		return errorResponse(c, http.StatusNotFound, fmt.Errorf("not found gacha"))
+		return h.consumedTokenError(c, tokenOnly, http.StatusNotFound, fmt.Errorf("not found gacha"))
 	}
 	items := masterData.GachaItems[gachaNumber]
 	if len(items) == 0 {
-		return errorResponse(c, http.StatusNotFound, fmt.Errorf("not found gacha item"))
+		return h.consumedTokenError(c, tokenOnly, http.StatusNotFound, fmt.Errorf("not found gacha item"))
 	}
 	var total int64
 	for _, item := range items {
 		total += int64(item.Weight)
 	}
 	if total <= 0 {
-		return errorResponse(c, http.StatusInternalServerError, fmt.Errorf("invalid gacha weights"))
+		return h.consumedTokenError(c, tokenOnly, http.StatusInternalServerError, fmt.Errorf("invalid gacha weights"))
 	}
 	presents := make([]*UserPresent, 0, count)
 	for i := int64(0); i < count; i++ {
@@ -122,11 +123,11 @@ func (h *Handler) stateDrawGacha(c echo.Context) error {
 			}
 		}
 		if selected == nil {
-			return errorResponse(c, http.StatusInternalServerError, fmt.Errorf("invalid gacha weights"))
+			return h.consumedTokenError(c, tokenOnly, http.StatusInternalServerError, fmt.Errorf("invalid gacha weights"))
 		}
 		pid, err := h.generateID()
 		if err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
+			return h.consumedTokenError(c, tokenOnly, http.StatusInternalServerError, err)
 		}
 		presents = append(presents, &UserPresent{ID: pid, UserID: id, SentAt: at, ItemType: selected.ItemType,
 			ItemID: selected.ItemID, Amount: selected.Amount, PresentMessage: fmt.Sprintf("%sの付与アイテムです", master.Name),
@@ -315,26 +316,27 @@ func (h *Handler) stateAddExpToCard(c echo.Context) error {
 	if err != nil {
 		return stateNotFound(c, err)
 	}
-	if err := h.consumeStateToken(st, req.OneTimeToken, 2, at); err != nil {
+	tokenOnly, err := h.stageStateToken(st, req.OneTimeToken, 2, at)
+	if err != nil {
 		if err == ErrInvalidToken {
 			return errorResponse(c, http.StatusBadRequest, err)
 		}
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	if err := stateViewerError(c, st, req.ViewerID); err != nil {
-		return err
+	if !st.validViewer(req.ViewerID) {
+		return h.consumedTokenError(c, tokenOnly, http.StatusNotFound, ErrUserDeviceNotFound)
 	}
 	card := st.card(cardID)
 	if card == nil {
-		return errorResponse(c, http.StatusNotFound, sql.ErrNoRows)
+		return h.consumedTokenError(c, tokenOnly, http.StatusNotFound, sql.ErrNoRows)
 	}
 	masterData := requestMaster(c)
 	master := masterData.Items[card.CardID]
 	if master == nil {
-		return errorResponse(c, http.StatusNotFound, sql.ErrNoRows)
+		return h.consumedTokenError(c, tokenOnly, http.StatusNotFound, sql.ErrNoRows)
 	}
 	if card.Level == *master.MaxLevel {
-		return errorResponse(c, http.StatusBadRequest, fmt.Errorf("target card is max level"))
+		return h.consumedTokenError(c, tokenOnly, http.StatusBadRequest, fmt.Errorf("target card is max level"))
 	}
 	card = st.editCard(cardID)
 	type consumption struct {
@@ -346,14 +348,14 @@ func (h *Handler) stateAddExpToCard(c echo.Context) error {
 	for _, v := range req.Items {
 		item := st.item(v.ID)
 		if item == nil || item.ItemType != 3 {
-			return errorResponse(c, http.StatusNotFound, sql.ErrNoRows)
+			return h.consumedTokenError(c, tokenOnly, http.StatusNotFound, sql.ErrNoRows)
 		}
 		itemMaster := masterData.Items[item.ItemID]
 		if itemMaster == nil {
-			return errorResponse(c, http.StatusNotFound, sql.ErrNoRows)
+			return h.consumedTokenError(c, tokenOnly, http.StatusNotFound, sql.ErrNoRows)
 		}
 		if v.Amount > item.Amount {
-			return errorResponse(c, http.StatusBadRequest, fmt.Errorf("item not enough"))
+			return h.consumedTokenError(c, tokenOnly, http.StatusBadRequest, fmt.Errorf("item not enough"))
 		}
 		card.TotalExp += int64(*itemMaster.GainedExp * v.Amount)
 		consumptions = append(consumptions, consumption{item: item, amount: v.Amount, initial: item.Amount})
@@ -379,4 +381,11 @@ func (h *Handler) stateAddExpToCard(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 	return successResponse(c, &AddExpToCardResponse{UpdatedResources: makeUpdatedResources(at, nil, nil, []*UserCard{card}, nil, consumed, nil, nil)})
+}
+
+func (h *Handler) consumedTokenError(c echo.Context, tokenOnly *userState, status int, cause error) error {
+	if err := h.saveUserState(tokenOnly); err != nil {
+		return errorResponse(c, http.StatusInternalServerError, err)
+	}
+	return errorResponse(c, status, cause)
 }

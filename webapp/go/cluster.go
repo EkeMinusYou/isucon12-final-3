@@ -125,6 +125,63 @@ func (h *Handler) initializeLocalHTTP(ctx echo.Context) error {
 	return ctx.NoContent(http.StatusNoContent)
 }
 
+func (h *Handler) sessionOwnerLocalHTTP(ctx echo.Context) error {
+	peer, _, err := net.SplitHostPort(ctx.Request().RemoteAddr)
+	if err != nil {
+		return ctx.NoContent(http.StatusForbidden)
+	}
+	allowed := false
+	for _, host := range h.Cluster.Hosts {
+		if host.IP == peer {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return ctx.NoContent(http.StatusForbidden)
+	}
+	data, err := io.ReadAll(io.LimitReader(ctx.Request().Body, 129))
+	if err != nil || len(data) == 0 || len(data) > 128 {
+		return ctx.NoContent(http.StatusBadRequest)
+	}
+	owner, ok := h.State.sessionOwner(string(data))
+	if !ok {
+		return ctx.NoContent(http.StatusNoContent)
+	}
+	return ctx.String(http.StatusOK, strconv.FormatInt(owner, 10))
+}
+
+func (h *Handler) findRemoteSessionOwner(sessionID string) (int64, bool, error) {
+	client := &http.Client{Timeout: time.Second, Transport: h.Cluster.client.Transport}
+	for i := 1; i < len(h.Cluster.Hosts); i++ {
+		if i == h.Cluster.Self {
+			continue
+		}
+		target := "http://" + net.JoinHostPort(h.Cluster.Hosts[i].IP, "8080") + "/_internal/session/owner"
+		resp, err := client.Post(target, "text/plain", strings.NewReader(sessionID))
+		if err != nil {
+			return 0, false, err
+		}
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 64))
+		resp.Body.Close()
+		if err != nil {
+			return 0, false, err
+		}
+		if resp.StatusCode == http.StatusNoContent {
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			return 0, false, fmt.Errorf("session lookup status %d", resp.StatusCode)
+		}
+		owner, err := strconv.ParseInt(string(body), 10, 64)
+		if err != nil {
+			return 0, false, err
+		}
+		return owner, true, nil
+	}
+	return 0, false, nil
+}
+
 func (h *Handler) refreshMasterLocalHTTP(ctx echo.Context) error {
 	if h.Cluster.Self == 0 {
 		return ctx.NoContent(http.StatusForbidden)

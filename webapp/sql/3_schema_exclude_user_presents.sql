@@ -38,25 +38,6 @@ CREATE TABLE `users` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
-CREATE TABLE `user_state_core` (
-  `user_id` bigint NOT NULL,
-  `revision` bigint NOT NULL,
-  `payload` mediumblob NOT NULL,
-  PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB;
-
-CREATE TABLE `user_state_inventory` (
-  `user_id` bigint NOT NULL,
-  `payload` mediumblob NOT NULL,
-  PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB;
-
-CREATE TABLE `user_state_inbox` (
-  `user_id` bigint NOT NULL,
-  `payload` mediumblob NOT NULL,
-  PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB;
-
 CREATE TABLE `user_decks` (
   `id` bigint NOT NULL,
   `user_id` bigint NOT NULL comment 'ユーザID', 
@@ -268,20 +249,6 @@ CREATE TABLE `user_one_time_tokens` (
   PRIMARY KEY (`id`),
   UNIQUE uniq_token (`user_id`, `token`, `deleted_at`),
   KEY idx_token (`token`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
-
-CREATE TABLE `user_state_events` (
-  `user_id` bigint NOT NULL,
-  `seq` bigint NOT NULL,
-  `payload` mediumblob NOT NULL,
-  PRIMARY KEY (`user_id`, `seq`)
-) ENGINE=InnoDB;
-
-CREATE TABLE `user_session_current` (
-  `user_id` bigint NOT NULL,
-  `session_id` varchar(128) NOT NULL,
-  PRIMARY KEY (`user_id`),
-  UNIQUE KEY `uniq_session_id` (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 /* 管理者権限のセッション管理 */

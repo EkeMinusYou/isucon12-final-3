@@ -84,7 +84,7 @@ func TestTokenConsumptionAndPresentReceiptReplay(t *testing.T) {
 	if !first.TokenChanged || first.Token != nil {
 		t.Fatal("token consumption was not recorded")
 	}
-	firstCommitted := working.promoteCommitted(10)
+	firstCommitted := working.promoteCommitted()
 	if err := stateTokenValid(working, "once", 1, 100); err != ErrInvalidToken {
 		t.Fatalf("token reused after first commit: %v", err)
 	}

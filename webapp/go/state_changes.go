@@ -19,17 +19,11 @@ func newWorkingState(committed *userState) *userState {
 	return &working
 }
 
-func (st *userState) promoteCommitted(payloadBytes int) *userState {
+func (st *userState) promoteCommitted() *userState {
 	st.Revision++
 	committed := *st
 	committed.base = nil
 	committed.changes = stateChanges{}
-	if st.base != nil {
-		committed.eventsSinceSnapshot = st.base.eventsSinceSnapshot + 1
-		committed.eventBytes = st.base.eventBytes + payloadBytes
-	} else {
-		committed.eventsSinceSnapshot, committed.eventBytes = 1, payloadBytes
-	}
 	st.base = &committed
 	st.changes = stateChanges{}
 	return &committed

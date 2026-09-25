@@ -1,22 +1,15 @@
 package main
 
 import (
-	"container/list"
 	"context"
-	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
-)
-
-const (
-	stateCacheEntries   = 256
-	stateCacheBytes     = 8 << 20
-	sessionCacheEntries = 16384
 )
 
 type stateCore struct {
@@ -41,36 +34,26 @@ type stateInbox struct {
 }
 
 type userState struct {
-	ID                  int64
-	Revision            int64
-	Core                stateCore
-	Inventory           stateInventory
-	Inbox               stateInbox
-	base                *userState
-	changes             stateChanges
-	eventsSinceSnapshot int
-	eventBytes          int
-}
-
-type stateCacheEntry struct {
-	id    int64
-	state *userState
-	size  int
+	ID        int64
+	Revision  int64
+	Core      stateCore
+	Inventory stateInventory
+	Inbox     stateInbox
+	base      *userState
+	changes   stateChanges
 }
 
 type stateStore struct {
 	gate          sync.RWMutex
 	locks         [4096]sync.Mutex
-	mu            sync.Mutex
-	lru           *list.List
-	items         map[int64]*list.Element
-	bytes         int
+	mu            sync.RWMutex
+	items         map[int64]*userState
 	seeds         map[int64][]*UserPresent
 	sessionOwners map[string]int64
 }
 
 func newStateStore() *stateStore {
-	return &stateStore{lru: list.New(), items: make(map[int64]*list.Element), sessionOwners: make(map[string]int64)}
+	return &stateStore{items: make(map[int64]*userState), sessionOwners: make(map[string]int64)}
 }
 
 func (s *stateStore) lock(id int64) func() {
@@ -79,48 +62,42 @@ func (s *stateStore) lock(id int64) func() {
 	return m.Unlock
 }
 
-func (s *stateStore) clear(seeds map[int64][]*UserPresent) {
+func (s *stateStore) replace(states map[int64]*userState, seeds map[int64][]*UserPresent) {
 	s.mu.Lock()
-	s.lru.Init()
-	s.items = make(map[int64]*list.Element)
-	s.bytes = 0
+	s.items = states
 	s.seeds = seeds
 	s.sessionOwners = make(map[string]int64)
+	for id, st := range states {
+		if st.Core.Session != nil {
+			s.sessionOwners[st.Core.Session.SessionID] = id
+		}
+	}
 	s.mu.Unlock()
 }
 
 func (s *stateStore) get(id int64) (*userState, bool) {
-	s.mu.Lock()
-	e, ok := s.items[id]
-	if ok {
-		s.lru.MoveToFront(e)
-	}
+	s.mu.RLock()
+	committed, ok := s.items[id]
+	s.mu.RUnlock()
 	if !ok {
-		s.mu.Unlock()
 		return nil, false
 	}
-	committed := e.Value.(*stateCacheEntry).state
-	s.mu.Unlock()
 	return newWorkingState(committed), true
 }
 
 // peek is only safe while holding the user's striped lock and without mutating the result.
 func (s *stateStore) peek(id int64) (*userState, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	e, ok := s.items[id]
-	if !ok {
-		return nil, false
-	}
-	s.lru.MoveToFront(e)
-	return e.Value.(*stateCacheEntry).state, true
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	st, ok := s.items[id]
+	return st, ok
 }
 
 func (h *Handler) loadUserStateRead(id int64) (*userState, error) {
 	if st, ok := h.State.peek(id); ok {
 		return st, nil
 	}
-	return h.loadUserState(id)
+	return nil, ErrUserNotFound
 }
 
 func (h *Handler) initializeState(c echo.Context) error {
@@ -128,82 +105,61 @@ func (h *Handler) initializeState(c echo.Context) error {
 }
 
 func (h *Handler) resetLocal(ctx context.Context) error {
+	h.CheckpointMu.Lock()
+	defer h.CheckpointMu.Unlock()
 	h.State.gate.Lock()
 	defer h.State.gate.Unlock()
 	if err := initialize(ctx); err != nil {
-		return err
-	}
-	if err := h.snapshotInitialUsers(ctx); err != nil {
 		return err
 	}
 	seeds, err := h.loadSeedPresents()
 	if err != nil {
 		return err
 	}
-	h.State.clear(seeds)
+	states, err := h.loadInitialStates(ctx)
+	if err != nil {
+		return err
+	}
+	if err := h.Writer.reset(states, seeds); err != nil {
+		return err
+	}
+	h.State.replace(states, seeds)
+	h.LastReset = time.Now()
+	if h.CheckpointReset != nil {
+		select {
+		case h.CheckpointReset <- struct{}{}:
+		default:
+		}
+	}
+	if snapshot, err := os.Stat(snapshotPath(h.Writer.dir, 0)); err == nil {
+		if seedFile, seedErr := os.Stat(seedsPath(h.Writer.dir)); seedErr == nil {
+			log.Printf("initialized local state: users=%d snapshot_bytes=%d seed_bytes=%d", len(states), snapshot.Size(), seedFile.Size())
+		}
+	}
 	h.Masters.clear()
 	return nil
 }
 
 func (s *stateStore) putOwned(st *userState) {
-	size := estimateStateBytes(st)
-	if size > stateCacheBytes {
-		s.remove(st.ID)
-		return
-	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if e, ok := s.items[st.ID]; ok {
-		entry := e.Value.(*stateCacheEntry)
-		s.bytes -= entry.size
-		entry.state, entry.size = st, size
-		s.bytes += size
-		s.lru.MoveToFront(e)
-	} else {
-		e := s.lru.PushFront(&stateCacheEntry{id: st.ID, state: st, size: size})
-		s.items[st.ID] = e
-		s.bytes += size
-	}
-	for (s.lru.Len() > stateCacheEntries || s.bytes > stateCacheBytes) && s.lru.Len() > 1 {
-		last := s.lru.Back()
-		entry := last.Value.(*stateCacheEntry)
-		delete(s.items, entry.id)
-		s.bytes -= entry.size
-		s.lru.Remove(last)
-	}
-}
-
-func (s *stateStore) remove(id int64) {
-	s.mu.Lock()
-	if e, ok := s.items[id]; ok {
-		s.bytes -= e.Value.(*stateCacheEntry).size
-		delete(s.items, id)
-		s.lru.Remove(e)
-	}
+	s.items[st.ID] = st
 	s.mu.Unlock()
 }
 
-func estimateStateBytes(st *userState) int {
-	size := 512 + 128*(len(st.Core.Devices)+len(st.Core.Decks)+len(st.Core.LoginBonuses)+len(st.Core.PresentHistory)+len(st.Inventory.Cards)+len(st.Inventory.Items)+len(st.Inbox.Dynamic)) + 24*len(st.Inbox.Received)
-	for _, d := range st.Core.Devices {
-		size += len(d.PlatformID)
+func (s *stateStore) snapshot() map[int64]*userState {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	states := make(map[int64]*userState, len(s.items))
+	for id, st := range s.items {
+		states[id] = st
 	}
-	for _, p := range st.Inbox.Dynamic {
-		size += len(p.PresentMessage)
-	}
-	return size
+	return states
 }
 
 func (s *stateStore) seedRows(id int64) []*UserPresent {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.seeds[id]
-}
-
-func (s *stateStore) setSeeds(seeds map[int64][]*UserPresent) {
-	s.mu.Lock()
-	s.seeds = seeds
-	s.mu.Unlock()
 }
 
 func (h *Handler) loadSeedPresents() (map[int64][]*UserPresent, error) {
@@ -242,28 +198,10 @@ func (h *Handler) loadSeedPresents() (map[int64][]*UserPresent, error) {
 }
 
 func (s *stateStore) sessionOwner(id string) (int64, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	owner, ok := s.sessionOwners[id]
 	return owner, ok
-}
-
-func (s *stateStore) rememberSession(id string, owner int64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(s.sessionOwners) >= sessionCacheEntries {
-		for key := range s.sessionOwners {
-			delete(s.sessionOwners, key)
-			break
-		}
-	}
-	s.sessionOwners[id] = owner
-}
-
-func (s *stateStore) forgetSession(id string) {
-	s.mu.Lock()
-	delete(s.sessionOwners, id)
-	s.mu.Unlock()
 }
 
 func (s *stateStore) replaceSession(old, next *Session, owner int64) {
@@ -273,12 +211,6 @@ func (s *stateStore) replaceSession(old, next *Session, owner int64) {
 		delete(s.sessionOwners, old.SessionID)
 	}
 	if next != nil {
-		if len(s.sessionOwners) >= sessionCacheEntries {
-			for key := range s.sessionOwners {
-				delete(s.sessionOwners, key)
-				break
-			}
-		}
 		s.sessionOwners[next.SessionID] = owner
 	}
 }
@@ -287,76 +219,10 @@ func (h *Handler) loadUserState(id int64) (*userState, error) {
 	if st, ok := h.State.get(id); ok {
 		return st, nil
 	}
-	st := &userState{ID: id}
-	var corePayload, inventoryPayload, inboxPayload []byte
-	err := h.DB.QueryRowx("SELECT c.revision,c.payload,i.payload,b.payload FROM user_state_core c JOIN user_state_inventory i USING(user_id) JOIN user_state_inbox b USING(user_id) WHERE c.user_id=?", id).Scan(&st.Revision, &corePayload, &inventoryPayload, &inboxPayload)
-	exists := true
-	switch err {
-	case nil:
-		if err := json.Unmarshal(corePayload, &st.Core); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(inventoryPayload, &st.Inventory); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(inboxPayload, &st.Inbox); err != nil {
-			return nil, err
-		}
-	case sql.ErrNoRows:
-		st.Revision = 0
-		exists = false
-	default:
-		return nil, err
-	}
-	rows, err := h.DB.Queryx("SELECT seq,payload FROM user_state_events WHERE user_id=? AND seq>? ORDER BY seq", id, st.Revision)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var seq int64
-		var payload []byte
-		if err := rows.Scan(&seq, &payload); err != nil {
-			return nil, err
-		}
-		if seq != st.Revision+1 {
-			return nil, fmt.Errorf("state event gap: user=%d expected=%d got=%d", id, st.Revision+1, seq)
-		}
-		var delta stateDelta
-		if err := json.Unmarshal(payload, &delta); err != nil {
-			return nil, err
-		}
-		if !exists && delta.Create == nil {
-			return nil, fmt.Errorf("missing create event: user=%d", id)
-		}
-		if err := applyStateDelta(st, delta); err != nil {
-			return nil, err
-		}
-		st.Revision = seq
-		st.eventsSinceSnapshot++
-		st.eventBytes += len(payload)
-		exists = true
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, ErrUserNotFound
-	}
-	if st.Inbox.Received == nil {
-		st.Inbox.Received = make(map[int64]int64)
-	}
-	sortDynamicPresents(st.Inbox.Dynamic)
-	h.State.putOwned(st)
-	return newWorkingState(st), nil
+	return nil, ErrUserNotFound
 }
 
 func (h *Handler) saveUserState(st *userState) (err error) {
-	defer func() {
-		if err != nil {
-			h.State.remove(st.ID)
-		}
-	}()
 	if st.base != nil && st.base.Revision != st.Revision {
 		return fmt.Errorf("state revision conflict: user=%d", st.ID)
 	}
@@ -370,50 +236,10 @@ func (h *Handler) saveUserState(st *userState) (err error) {
 	if err := h.Writer.append(req); err != nil {
 		return err
 	}
-	committed := st.promoteCommitted(len(req.payload))
+	committed := st.promoteCommitted()
 	h.State.putOwned(committed)
 	h.State.replaceSession(req.oldSession, req.newSession, st.ID)
-	if committed.eventsSinceSnapshot >= stateSnapshotEvents || committed.eventBytes >= stateSnapshotBytes {
-		if compactErr := h.compactUserState(committed); compactErr != nil {
-			log.Printf("state snapshot user=%d: %v", st.ID, compactErr)
-		} else {
-			committed.eventsSinceSnapshot, committed.eventBytes = 0, 0
-		}
-	}
 	return nil
-}
-
-func (h *Handler) compactUserState(st *userState) error {
-	corePayload, err := json.Marshal(st.Core)
-	if err != nil {
-		return err
-	}
-	inventoryPayload, err := json.Marshal(st.Inventory)
-	if err != nil {
-		return err
-	}
-	inboxPayload, err := json.Marshal(st.Inbox)
-	if err != nil {
-		return err
-	}
-	tx, err := h.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback() //nolint:errcheck
-	if _, err := tx.Exec("INSERT INTO user_state_core(user_id,revision,payload) VALUES (?,?,?) ON DUPLICATE KEY UPDATE revision=VALUES(revision),payload=VALUES(payload)", st.ID, st.Revision, corePayload); err != nil {
-		return err
-	}
-	if _, err := tx.Exec("INSERT INTO user_state_inventory(user_id,payload) VALUES (?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)", st.ID, inventoryPayload); err != nil {
-		return err
-	}
-	if _, err := tx.Exec("INSERT INTO user_state_inbox(user_id,payload) VALUES (?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)", st.ID, inboxPayload); err != nil {
-		return err
-	}
-	if _, err := tx.Exec("DELETE FROM user_state_events WHERE user_id=? AND seq<=?", st.ID, st.Revision); err != nil {
-		return err
-	}
-	return tx.Commit()
 }
 
 func (st *userState) activeDeck() *UserDeck {
