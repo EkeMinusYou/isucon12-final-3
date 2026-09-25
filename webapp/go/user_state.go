@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -137,6 +138,7 @@ func (h *Handler) resetLocal(ctx context.Context) error {
 		}
 	}
 	h.Masters.clear()
+	debug.FreeOSMemory()
 	return nil
 }
 
