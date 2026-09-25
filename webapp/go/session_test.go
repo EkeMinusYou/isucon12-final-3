@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -38,6 +39,40 @@ func TestCheckSessionUsesCommittedState(t *testing.T) {
 			ctx.SetParamValues("42")
 			ctx.Set("requestTime", int64(1))
 			err := h.checkSessionMiddleware(func(c echo.Context) error { return c.NoContent(http.StatusNoContent) })(ctx)
+			if err != nil || rec.Code != tt.want {
+				t.Fatalf("status = %d, err = %v; want %d", rec.Code, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAPIMiddlewarePreservesBanResponse(t *testing.T) {
+	store := newStateStore()
+	expires := time.Now().Add(time.Hour).Unix()
+	store.replace(map[int64]*userState{
+		42: {ID: 42, Core: stateCore{User: &User{ID: 42}, Session: &Session{UserID: 42, SessionID: "current", ExpiredAt: expires}}},
+		43: {ID: 43, Core: stateCore{User: &User{ID: 43}, Banned: true}},
+	}, nil)
+	h := &Handler{State: store, Masters: &masterStore{value: &masterSnapshot{Version: &VersionMaster{MasterVersion: "v1"}}}}
+	for _, tt := range []struct {
+		name, userID, session string
+		want                  int
+	}{
+		{"valid session", "42", "current", http.StatusNoContent},
+		{"banned without session", "43", "", http.StatusForbidden},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/user/"+tt.userID+"/home", nil)
+			req.Header.Set("X-Master-Version", "v1")
+			req.Header.Set("X-Session", tt.session)
+			rec := httptest.NewRecorder()
+			ctx := e.NewContext(req, rec)
+			ctx.SetParamNames("userID")
+			ctx.SetParamValues(tt.userID)
+			err := h.apiMiddleware(h.checkSessionMiddleware(func(c echo.Context) error {
+				return c.NoContent(http.StatusNoContent)
+			}))(ctx)
 			if err != nil || rec.Code != tt.want {
 				t.Fatalf("status = %d, err = %v; want %d", rec.Code, err, tt.want)
 			}

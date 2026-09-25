@@ -128,14 +128,10 @@ func (h *Handler) stateReceivePresent(c echo.Context) error {
 			toReceive = append(toReceive, &p)
 		}
 	}
-	dynamic := make(map[int64]*UserPresent, len(st.Inbox.Dynamic))
 	for _, p := range st.Inbox.Dynamic {
-		dynamic[p.ID] = p
-	}
-	for _, pid := range req.PresentIDs {
-		if p := dynamic[pid]; p != nil && p.DeletedAt == nil {
+		if seen[p.ID] && p.DeletedAt == nil {
 			toReceive = append(toReceive, p)
-			delete(dynamic, pid)
+			delete(seen, p.ID)
 		}
 	}
 	if len(toReceive) == 0 {

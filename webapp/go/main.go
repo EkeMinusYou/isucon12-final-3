@@ -68,7 +68,6 @@ func main() {
 	time.Local = time.FixedZone("Local", 9*60*60)
 
 	e := echo.New()
-	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -147,7 +146,6 @@ func main() {
 		}
 	}()
 
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{}))
 	e.Use(cluster.routeMiddleware)
 
 	// utility
@@ -283,16 +281,20 @@ func (h *Handler) apiMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		c.Set("masterSnapshot", master)
 
-		// BANユーザ確認
+		// Keep the user's lock and committed state for session validation.
 		userID, err := getUserID(c)
 		if err == nil && userID != 0 {
-			isBan, err := h.checkBan(userID)
-			if err != nil {
+			unlock := h.State.lock(userID)
+			defer unlock()
+			st, err := h.loadUserStateRead(userID)
+			if err != nil && err != ErrUserNotFound {
 				return errorResponse(c, http.StatusInternalServerError, err)
 			}
-			if isBan {
+			if st != nil && st.Core.Banned {
 				return errorResponse(c, http.StatusForbidden, ErrForbidden)
 			}
+			c.Set("lockedUserID", userID)
+			c.Set("checkedUserState", st)
 		}
 
 		if err := next(c); err != nil {
@@ -324,9 +326,14 @@ func (h *Handler) checkSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 			return errorResponse(c, http.StatusInternalServerError, ErrGetRequestTime)
 		}
 
-		unlock := h.State.lock(userID)
+		unlock := h.lockUser(c, userID)
 		defer unlock()
-		st, err := h.loadUserStateRead(userID)
+		st, cached := c.Get("checkedUserState").(*userState)
+		if !cached {
+			st, err = h.loadUserStateRead(userID)
+		} else if st == nil {
+			err = ErrUserNotFound
+		}
 		if err != nil {
 			if err == ErrUserNotFound {
 				owner, ok, lookupErr := h.findSessionOwner(sessID)
@@ -387,20 +394,6 @@ func (h *Handler) lockUser(c echo.Context, id int64) func() {
 		return func() {}
 	}
 	return h.State.lock(id)
-}
-
-// checkBan reads the ban flag from the user's committed state.
-func (h *Handler) checkBan(userID int64) (bool, error) {
-	unlock := h.State.lock(userID)
-	defer unlock()
-	st, err := h.loadUserStateRead(userID)
-	if err == ErrUserNotFound {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return st.Core.Banned, nil
 }
 
 // getRequestTime リクエストを受けた時間をコンテキストからunix timeで取得する
