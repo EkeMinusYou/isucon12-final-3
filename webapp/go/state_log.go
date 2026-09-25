@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -19,20 +18,23 @@ import (
 )
 
 const (
-	stateBatchSize  = 128
 	stateSyncPeriod = 100 * time.Millisecond
 	maxStateFrame   = 16 << 20
 )
 
 type eventWriter struct {
-	dir        string
-	mu         sync.Mutex
-	file       *os.File
-	generation uint64
-	failed     error
-	unsynced   bool
-	queue      chan *eventAppend
-	done       chan struct{}
+	dir          string
+	mu           sync.Mutex
+	file         *os.File
+	generation   uint64
+	failed       error
+	unsynced     bool
+	events       uint64
+	writtenBytes uint64
+	syncs        uint64
+	syncTime     time.Duration
+	stop         chan struct{}
+	done         chan struct{}
 }
 
 func stateDirectory() (string, error) {
@@ -323,14 +325,36 @@ func newEventWriter(dir string) (*eventWriter, map[int64]*userState, map[int64][
 		f.Close()
 		return nil, nil, nil, err
 	}
-	w := &eventWriter{dir: dir, file: f, generation: generation, queue: make(chan *eventAppend, 4096), done: make(chan struct{})}
+	w := &eventWriter{dir: dir, file: f, generation: generation, stop: make(chan struct{}), done: make(chan struct{})}
 	go w.run()
 	return w, states, seeds, nil
 }
 
 func (w *eventWriter) append(req *eventAppend) error {
-	w.queue <- req
-	return <-req.done
+	entry, err := frame(recordPayload(req.userID, req.seq, req.payload))
+	if err != nil {
+		return err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.failed != nil {
+		return w.failed
+	}
+	if w.file == nil {
+		return fmt.Errorf("state log is closed")
+	}
+	n, err := w.file.Write(entry)
+	if err == nil && n != len(entry) {
+		err = io.ErrShortWrite
+	}
+	if err != nil {
+		w.failed = fmt.Errorf("append state log: %w", err)
+		return w.failed
+	}
+	w.unsynced = true
+	w.events++
+	w.writtenBytes += uint64(n)
+	return nil
 }
 
 func (w *eventWriter) run() {
@@ -338,27 +362,21 @@ func (w *eventWriter) run() {
 	ticker := time.NewTicker(stateSyncPeriod)
 	defer ticker.Stop()
 	lastReport := time.Now()
-	var batches, events, writtenBytes uint64
-	var syncs uint64
-	var syncTime time.Duration
-	var maxBatch int
 	var syncFailureReported bool
 	for {
-		var first *eventAppend
 		select {
-		case req, ok := <-w.queue:
-			if !ok {
-				if _, err := w.syncPending(); err != nil {
-					log.Printf("state log final sync: %v", err)
-				}
-				return
+		case <-w.stop:
+			if _, err := w.syncPending(); err != nil {
+				log.Printf("state log final sync: %v", err)
 			}
-			first = req
+			return
 		case <-ticker.C:
 			duration, err := w.syncPending()
 			if duration > 0 {
-				syncs++
-				syncTime += duration
+				w.mu.Lock()
+				w.syncs++
+				w.syncTime += duration
+				w.mu.Unlock()
 			}
 			if err != nil && !syncFailureReported {
 				log.Printf("state log periodic sync: %v", err)
@@ -366,43 +384,20 @@ func (w *eventWriter) run() {
 			} else if err == nil {
 				syncFailureReported = false
 			}
-			continue
-		}
-		batch := []*eventAppend{first}
-	collect:
-		for len(batch) < stateBatchSize {
-			select {
-			case req, ok := <-w.queue:
-				if !ok {
-					break collect
-				}
-				batch = append(batch, req)
-			default:
-				break collect
+			if time.Since(lastReport) >= 10*time.Second {
+				w.mu.Lock()
+				events, writtenBytes, syncs, syncTime := w.events, w.writtenBytes, w.syncs, w.syncTime
+				w.events, w.writtenBytes, w.syncs, w.syncTime = 0, 0, 0, 0
+				w.mu.Unlock()
+				log.Printf("state log: events=%d bytes=%d syncs=%d sync_ms=%d", events, writtenBytes, syncs, syncTime.Milliseconds())
+				lastReport = time.Now()
 			}
-		}
-		bytes, err := w.writeBatch(batch)
-		for _, req := range batch {
-			req.done <- err
-		}
-		if err == nil {
-			batches++
-			events += uint64(len(batch))
-			writtenBytes += uint64(bytes)
-			if len(batch) > maxBatch {
-				maxBatch = len(batch)
-			}
-		}
-		if time.Since(lastReport) >= 10*time.Second {
-			log.Printf("state log: batches=%d events=%d bytes=%d max_batch=%d syncs=%d sync_ms=%d", batches, events, writtenBytes, maxBatch, syncs, syncTime.Milliseconds())
-			lastReport = time.Now()
-			batches, events, writtenBytes, syncs, syncTime, maxBatch = 0, 0, 0, 0, 0, 0
 		}
 	}
 }
 
 func (w *eventWriter) close() error {
-	close(w.queue)
+	close(w.stop)
 	<-w.done
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -412,35 +407,6 @@ func (w *eventWriter) close() error {
 		}
 	}
 	return w.failed
-}
-
-func (w *eventWriter) writeBatch(batch []*eventAppend) (int, error) {
-	var data bytes.Buffer
-	for _, req := range batch {
-		entry, err := frame(recordPayload(req.userID, req.seq, req.payload))
-		if err != nil {
-			return 0, err
-		}
-		data.Write(entry)
-	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if w.failed != nil {
-		return 0, w.failed
-	}
-	if w.file == nil {
-		return 0, fmt.Errorf("state log is closed")
-	}
-	n, err := w.file.Write(data.Bytes())
-	if err == nil && n != data.Len() {
-		err = io.ErrShortWrite
-	}
-	if err != nil {
-		w.failed = fmt.Errorf("append state log: %w", err)
-	} else {
-		w.unsynced = true
-	}
-	return n, w.failed
 }
 
 func (w *eventWriter) syncPending() (time.Duration, error) {

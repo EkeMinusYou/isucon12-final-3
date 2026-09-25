@@ -113,7 +113,6 @@ type eventAppend struct {
 	payload    []byte
 	oldSession *Session
 	newSession *Session
-	done       chan error
 }
 
 func newEventAppend(st *userState) (*eventAppend, error) {
@@ -122,7 +121,7 @@ func newEventAppend(st *userState) (*eventAppend, error) {
 	if err != nil {
 		return nil, err
 	}
-	req := &eventAppend{userID: st.ID, seq: st.Revision + 1, payload: payload, done: make(chan error, 1)}
+	req := &eventAppend{userID: st.ID, seq: st.Revision + 1, payload: payload}
 	if st.base == nil {
 		req.newSession = st.Core.Session
 	} else if d.SessionChanged {
