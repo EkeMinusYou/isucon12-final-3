@@ -50,6 +50,78 @@ func TestStateLogPeriodicallySyncsAcknowledgedEvents(t *testing.T) {
 	}
 }
 
+func TestStateLogSyncAllowsAppendAndKeepsNewWriteDirty(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.OpenFile(logPath(dir, 0), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	w := &eventWriter{dir: dir, file: file}
+	if err := w.append(mustEvent(t, &userState{ID: 42, Core: stateCore{User: &User{ID: 42}}})); err != nil {
+		t.Fatal(err)
+	}
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	syncResult := make(chan error, 1)
+	go func() {
+		_, err := w.syncPendingWith(func(file *os.File) error {
+			close(started)
+			<-release
+			return file.Sync()
+		})
+		syncResult <- err
+	}()
+	<-started
+	second := mustEvent(t, &userState{ID: 43, Core: stateCore{User: &User{ID: 43}}})
+	appendResult := make(chan error, 1)
+	go func() {
+		appendResult <- w.append(second)
+	}()
+	select {
+	case err := <-appendResult:
+		if err != nil {
+			close(release)
+			<-syncResult
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		close(release)
+		<-syncResult
+		t.Fatal("append waited for an in-flight sync")
+	}
+	close(release)
+	if err := <-syncResult; err != nil {
+		t.Fatal(err)
+	}
+	w.mu.Lock()
+	unsynced := w.unsynced
+	w.mu.Unlock()
+	if !unsynced {
+		t.Fatal("write during sync was marked synced")
+	}
+	if _, err := w.syncPending(); err != nil {
+		t.Fatal(err)
+	}
+	w.mu.Lock()
+	unsynced = w.unsynced
+	w.mu.Unlock()
+	if unsynced {
+		t.Fatal("second sync did not clear the dirty state")
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	recovered, _, err := recoverLocalState(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recovered[42] == nil || recovered[43] == nil {
+		t.Fatalf("recovered state is incomplete: %+v", recovered)
+	}
+}
+
 func TestStagedTokenCommitRecoversSuccessAndFailure(t *testing.T) {
 	for _, success := range []bool{true, false} {
 		name := "failure"

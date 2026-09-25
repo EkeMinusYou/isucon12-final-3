@@ -25,10 +25,12 @@ const (
 type eventWriter struct {
 	dir          string
 	mu           sync.Mutex
+	syncMu       sync.Mutex
 	file         *os.File
 	generation   uint64
 	failed       error
 	unsynced     bool
+	writeSeq     uint64
 	events       uint64
 	writtenBytes uint64
 	syncs        uint64
@@ -352,6 +354,7 @@ func (w *eventWriter) append(req *eventAppend) error {
 		return w.failed
 	}
 	w.unsynced = true
+	w.writeSeq++
 	w.events++
 	w.writtenBytes += uint64(n)
 	return nil
@@ -399,20 +402,64 @@ func (w *eventWriter) run() {
 func (w *eventWriter) close() error {
 	close(w.stop)
 	<-w.done
+	w.syncMu.Lock()
+	defer w.syncMu.Unlock()
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if _, err := w.syncLocked(); err != nil {
+		log.Printf("state log final sync: %v", err)
+	}
 	if w.file != nil {
 		if err := w.file.Close(); err != nil && w.failed == nil {
 			return err
 		}
+		w.file = nil
 	}
 	return w.failed
 }
 
 func (w *eventWriter) syncPending() (time.Duration, error) {
+	return w.syncPendingWith((*os.File).Sync)
+}
+
+func (w *eventWriter) syncPendingWith(syncFile func(*os.File) error) (time.Duration, error) {
+	w.syncMu.Lock()
+	defer w.syncMu.Unlock()
+	w.mu.Lock()
+	if w.failed != nil {
+		err := w.failed
+		w.mu.Unlock()
+		return 0, err
+	}
+	if w.file == nil {
+		w.failed = fmt.Errorf("state log is closed")
+		err := w.failed
+		w.mu.Unlock()
+		return 0, err
+	}
+	if !w.unsynced {
+		w.mu.Unlock()
+		return 0, nil
+	}
+	file, generation, writeSeq := w.file, w.generation, w.writeSeq
+	w.mu.Unlock()
+
+	start := time.Now()
+	err := syncFile(file)
+	duration := time.Since(start)
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.syncLocked()
+	if w.failed != nil {
+		return duration, w.failed
+	}
+	if err != nil {
+		w.failed = fmt.Errorf("sync state log: %w", err)
+		return duration, w.failed
+	}
+	if w.file == file && w.generation == generation && w.writeSeq == writeSeq {
+		w.unsynced = false
+	}
+	return duration, nil
 }
 
 func (w *eventWriter) syncLocked() (time.Duration, error) {
@@ -556,6 +603,8 @@ func writeLocalSeeds(dir string, seeds map[int64][]*UserPresent) (err error) {
 }
 
 func (w *eventWriter) reset(states map[int64]*userState, seeds map[int64][]*UserPresent) error {
+	w.syncMu.Lock()
+	defer w.syncMu.Unlock()
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.file != nil {
@@ -590,6 +639,8 @@ func (w *eventWriter) reset(states map[int64]*userState, seeds map[int64][]*User
 }
 
 func (w *eventWriter) rotate() (uint64, error) {
+	w.syncMu.Lock()
+	defer w.syncMu.Unlock()
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.failed != nil {
